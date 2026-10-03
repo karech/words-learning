@@ -1,6 +1,8 @@
 // Answer options: 1 correct + 3 distractors (spec §38–40). No DOM/Alpine.
 // Shared with scripts/validate-cards.js — do not reimplement there.
 
+import { DISTRACTOR_DIFFICULTY_WINDOW } from './config.js'
+
 export const normalize = s => s.trim().toLowerCase().replaceAll('ё', 'е')
 
 // 'sr-ru' → answers are Russian translations; 'ru-sr' → answers are Serbian words.
@@ -11,8 +13,8 @@ const sameGroup = (a, b) => a.groups.some(g => b.groups.includes(g))
 // Dynamic tiers in priority order; card.distractors fallback sits between tier 0 and 1 (§39).
 const TIERS = [
   (a, b) => a.partOfSpeech === b.partOfSpeech && a.difficulty === b.difficulty && sameGroup(a, b),
-  (a, b) => a.partOfSpeech === b.partOfSpeech && Math.abs(a.difficulty - b.difficulty) <= 1 && sameGroup(a, b),
-  (a, b) => a.partOfSpeech === b.partOfSpeech && Math.abs(a.difficulty - b.difficulty) <= 1,
+  (a, b) => a.partOfSpeech === b.partOfSpeech && Math.abs(a.difficulty - b.difficulty) <= DISTRACTOR_DIFFICULTY_WINDOW && sameGroup(a, b),
+  (a, b) => a.partOfSpeech === b.partOfSpeech && Math.abs(a.difficulty - b.difficulty) <= DISTRACTOR_DIFFICULTY_WINDOW,
   (a, b) => a.partOfSpeech === b.partOfSpeech,
 ]
 

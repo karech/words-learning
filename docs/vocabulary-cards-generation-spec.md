@@ -26,11 +26,11 @@ This generator is responsible for **how each approved semantic entry is represen
 The primary input is a curated Markdown vocabulary source with tables in this form:
 
 ```md
-| Srpski | Значение | Card |
-|---|---|---|
-| vreme | время | sr_00411 |
-| vreme | погода | |
-| sad | сейчас, разговорная форма | skip: variant sada |
+| Srpski | Meaning | Priority | Card |
+|---|---|---:|---|
+| vreme | время | 1 | sr_00411 |
+| vreme | погода | 2 | |
+| sad | сейчас, разговорная форма | | skip: variant sada |
 ```
 
 The generator may also receive:
@@ -46,30 +46,40 @@ Each source row is one of three states.
 #### Pending semantic entry
 
 ```md
-| vreme | погода | |
+| vreme | погода | 2 | |
 ```
 
-An empty `Card` field means this semantic entry has been approved for learning but does not yet have a generated card.
+An empty `Card` field means this semantic entry has been approved for learning but does not yet have a generated card. Its source `Priority` is already authoritative.
 
-The generator must create exactly one card for it and assign a new stable ID.
+The generator must create exactly one card for it, copy its source Priority exactly, and assign a new stable ID.
 
 #### Existing semantic entry
 
 ```md
-| vreme | время | sr_00411 |
+| vreme | время | 1 | sr_00411 |
 ```
 
 An `sr_XXXXX` value means this row is already linked to that exact card.
 
-The source ID is authoritative and must be preserved.
+The source ID is authoritative and must be preserved. The source Priority must also be copied to the card.
 
 #### Skipped entry
 
 ```md
-| sad | сейчас, разговорная форма | skip: variant sada |
+| sad | сейчас, разговорная форма | | skip: variant sada |
 ```
 
 Rows whose `Card` field begins with `skip:` do not generate cards.
+
+### Priority contract
+
+Every non-skip source row must contain a `Priority` value from `1` to `10`.
+
+The generator must copy this value exactly into the generated card as `priority`.
+
+Skip rows do not generate cards and may leave Priority empty.
+
+The generator must not independently infer, normalize, or re-rank source Priority.
 
 ### Core mapping rule
 
@@ -104,13 +114,13 @@ The dataset has no `version` field: the release version is stamped at deploy tim
 When a pending source row receives a newly assigned card ID, the generator must also update **only the `Card` field of that source row**:
 
 ```md
-| vreme | погода | |
+| vreme | погода | 2 | |
 ```
 
 becomes:
 
 ```md
-| vreme | погода | sr_00412 |
+| vreme | погода | 2 | sr_00412 |
 ```
 
 Do not otherwise rewrite, reorder, normalize, or editorially improve the vocabulary source as part of card generation.
@@ -135,6 +145,7 @@ Each card must have this structure:
 
   "partOfSpeech": "noun",
   "difficulty": 1,
+  "priority": 1,
 
   "groups": [
     "restaurant",
@@ -158,12 +169,20 @@ Each card must have this structure:
     {
       "sr": "Molim vas, račun.",
       "ru": "Счёт, пожалуйста."
+    },
+    {
+      "sr": "Mogu li da dobijem račun?",
+      "ru": "Можно мне счёт?"
+    },
+    {
+      "sr": "Račun je na stolu.",
+      "ru": "Счёт на столе."
     }
   ]
 }
 ```
 
-All fields are required unless explicitly stated otherwise in this specification.
+All fields are required unless explicitly stated otherwise in this specification. `priority` is required and must equal the source-row Priority.
 
 ---
 
@@ -172,7 +191,7 @@ All fields are required unless explicitly stated otherwise in this specification
 A card represents one approved semantic entry:
 
 ```text
-source Srpski + source Значение
+source Srpski + source Meaning
         ↓
 word + semantic sense
 ```
@@ -182,8 +201,8 @@ The vocabulary source has already decided which meanings deserve separate cards.
 Example source:
 
 ```md
-| vreme | время | |
-| vreme | погода | |
+| vreme | время | 1 | |
+| vreme | погода | 2 | |
 ```
 
 must produce two separate cards with the same Serbian `word` and different semantic `sense` values, for example:
@@ -196,9 +215,9 @@ vreme / weather
 Likewise:
 
 ```md
-| račun | счёт, который нужно оплатить | |
-| račun | банковский счёт | |
-| račun | вычисление, расчёт | |
+| račun | счёт, который нужно оплатить | 1 | |
+| račun | банковский счёт | 2 | |
+| račun | расчёт, вычисление | 7 | |
 ```
 
 represents three cards.
@@ -216,7 +235,7 @@ The vocabulary source is authoritative for **which lexical meanings exist in the
 For every non-skip source row:
 
 1. treat `Srpski` as the intended Serbian lexical item;
-2. treat `Значение` as the semantic intent of that row;
+2. treat `Meaning` as the semantic intent of that row;
 3. generate exactly one card representing that intent.
 
 The generator must **not**:
@@ -272,12 +291,12 @@ variant
 
 ### New pending rows
 
-For a pending source row, derive a concise English `sense` from the source `Значение`.
+For a pending source row, derive a concise English `sense` from the source `Meaning`.
 
 Example:
 
 ```md
-| vreme | погода | |
+| vreme | погода | 2 | |
 ```
 
 may generate:
@@ -391,7 +410,7 @@ If a non-skip source row appears to use an invalid or inappropriate lexical form
 
 `translation` is the primary Russian answer shown in multiple choice.
 
-The source column `Значение` is a **semantic hint**, not necessarily the literal final `translation`.
+The source column `Meaning` is a **semantic hint**, not necessarily the literal final `translation`.
 
 The generator may choose a shorter or more natural canonical Russian answer as long as it preserves exactly the semantic intent of the source row.
 
@@ -407,7 +426,7 @@ Prefer one canonical translation.
 Example source:
 
 ```md
-| račun | счёт, который нужно оплатить | |
+| račun | счёт, который нужно оплатить | 1 | |
 ```
 
 may reasonably generate:
@@ -555,7 +574,71 @@ Do not overuse `3`.
 
 ---
 
-## 15. Semantic Groups
+## 15. Learning Priority
+
+Every generated card must contain:
+
+```json
+"priority": 1
+```
+
+Allowed values:
+
+```text
+1–10
+```
+
+The value must be copied **exactly from the corresponding vocabulary source row**.
+
+The cards generator must not independently re-rank or infer a different priority.
+
+Priority belongs to the exact semantic meaning represented by the source row. Different senses of the same Serbian word may therefore have different priorities.
+
+Example source:
+
+```md
+| račun | счёт, который нужно оплатить | 1 | ... |
+| račun | банковский счёт | 2 | ... |
+| račun | расчёт, вычисление | 7 | ... |
+```
+
+must generate cards with priorities `1`, `2`, and `7` respectively.
+
+### Priority semantics
+
+```text
+1  — Core ~100: the most essential beginner meanings
+2  — Next ~200: the next most useful everyday meanings
+3  — Next ~500: broader basic vocabulary
+4  — A1, higher-priority remainder
+5  — A1, lower-priority / more situational
+6  — A2, higher-priority
+7  — A2, lower-priority / more specific
+8  — B1
+9  — B2
+10 — C1+
+```
+
+These values are internal learning-order tiers. They are not card difficulty and are not claims of exact official CEFR classification for an individual word.
+
+The approximate sizes of priorities `1–3` are source-authoring targets, not validator-enforced exact counts.
+
+### Relationship to `difficulty`
+
+`priority` and `difficulty` are separate fields:
+
+- `priority` = when the semantic meaning should enter learning;
+- `difficulty` = how difficult the card itself is expected to be.
+
+A very common word may have low priority number but still be semantically difficult, and vice versa.
+
+### Mutability
+
+Priority is **mutable scheduling metadata**. It may be intentionally changed later to improve learning order without changing card identity or card ID.
+
+---
+
+## 16. Semantic Groups
 
 `groups` are flat tags used primarily to find plausible distractors.
 
@@ -606,7 +689,7 @@ Groups describe semantic neighborhood, not the entire meaning.
 
 ---
 
-## 16. Examples
+## 17. Examples
 
 Each card must contain **exactly 3 examples**.
 
@@ -652,7 +735,7 @@ All three bilingual example pairs must preserve the same intended card sense.
 
 ---
 
-## 17. Examples Must Disambiguate the Sense
+## 18. Examples Must Disambiguate the Sense
 
 For polysemous words, examples should help identify the intended meaning.
 
@@ -683,7 +766,7 @@ Do not use a vague example that fits several senses.
 
 ---
 
-## 18. Examples Are Not Answer Hints
+## 19. Examples Are Not Answer Hints
 
 The application shows the example **before** the user selects an answer.
 
@@ -697,7 +780,7 @@ Natural Serbian remains more important.
 
 ---
 
-## 19. Fallback Distractors
+## 20. Fallback Distractors
 
 Each card contains fallback distractors for both answer languages:
 
@@ -718,7 +801,7 @@ The runtime normally attempts to select distractors dynamically from other cards
 
 ---
 
-## 20. Russian Distractors
+## 21. Russian Distractors
 
 `distractors.ru` are alternative Russian answer options for:
 
@@ -760,7 +843,7 @@ for a noun meaning a place.
 
 ---
 
-## 21. Serbian Distractors
+## 22. Serbian Distractors
 
 `distractors.sr` are alternative Serbian answer options for:
 
@@ -787,7 +870,7 @@ reasonable alternatives could include other everyday place nouns.
 
 ---
 
-## 22. Distractor Safety
+## 23. Distractor Safety
 
 Never include:
 
@@ -809,7 +892,7 @@ So `счет` and `счёт` count as the same value. Use `ё` in the data where
 
 ---
 
-## 23. Bidirectional Ambiguity
+## 24. Bidirectional Ambiguity
 
 Special attention is required for `RU → SR`.
 
@@ -829,7 +912,7 @@ If the Russian prompt is inherently ambiguous, ensure the example strongly ident
 
 ---
 
-## 24. Source Rows Are Authoritative
+## 25. Source Rows Are Authoritative
 
 The vocabulary source is curated upstream.
 
@@ -854,22 +937,22 @@ Do not invent dubious semantic data merely to force a source row through generat
 
 ---
 
-## 25. Source Consistency and Duplicates
+## 26. Source Consistency and Duplicates
 
 The same Serbian `Srpski` value may legitimately appear in several non-skip rows when the rows represent different meanings.
 
 Valid:
 
 ```md
-| vreme | время | sr_00411 |
-| vreme | погода | |
+| vreme | время | 1 | sr_00411 |
+| vreme | погода | 2 | |
 ```
 
 Invalid source state:
 
 ```md
-| vreme | погода | |
-| vreme | погода | |
+| vreme | погода | 2 | |
+| vreme | погода | 2 | |
 ```
 
 or two differently worded rows that clearly represent the same semantic meaning.
@@ -882,7 +965,7 @@ Rows marked `skip:` are not cards and do not participate in the one-row-to-one-c
 
 ---
 
-## 26. Existing Dataset Updates
+## 27. Existing Dataset Updates
 
 When a current or previous `cards.json` is provided, use it together with the source `Card` IDs and `data/history/` as authoritative identity information.
 
@@ -895,6 +978,7 @@ translation
 pronunciation
 partOfSpeech
 difficulty
+priority
 groups
 distractors
 examples
@@ -921,7 +1005,7 @@ If an existing card is fundamentally semantically incorrect and fixing it would 
 
 ---
 
-## 27. Removing Cards
+## 28. Removing Cards
 
 Normal generation must not automatically delete existing cards.
 
@@ -936,7 +1020,7 @@ When a card is explicitly removed:
 
 ---
 
-## 28. Sorting
+## 29. Sorting
 
 The generated card order should follow the order of non-skip semantic rows in the vocabulary source.
 
@@ -950,13 +1034,13 @@ Do not reorder the vocabulary source as part of card generation.
 
 ---
 
-## 29. Quality Checklist per Card
+## 30. Quality Checklist per Card
 
 Before emitting each card, verify:
 
 - Does the card correspond to exactly one non-skip source row?
 - Does `word` exactly match the source `Srpski` value?
-- Does the card preserve the semantic intent of source `Значение`?
+- Does the card preserve the semantic intent of source `Meaning`?
 - Is `sense` concise and stable?
 - For an existing ID, was the published `sense` preserved?
 - Is the Russian translation natural?
@@ -964,6 +1048,7 @@ Before emitting each card, verify:
 - Is pronunciation plausible and stressed?
 - Is part of speech correct?
 - Is difficulty reasonable?
+- Does `priority` exactly match the source row?
 - Are groups useful for distractor selection?
 - Are there exactly 3 bilingual examples?
 - Does every example represent exactly this sense?
@@ -974,7 +1059,7 @@ Before emitting each card, verify:
 
 ---
 
-## 30. Dataset-Level Checklist
+## 31. Dataset-Level Checklist
 
 Before finishing, verify:
 
@@ -992,12 +1077,14 @@ Before finishing, verify:
 - all cards have exactly 3 RU and exactly 3 SR fallback distractors;
 - only allowed `partOfSpeech` values are used;
 - difficulty is only 1–3;
+- priority is only `1–10`;
+- every card priority exactly matches its source row;
 - semantic groups remain reasonably consistent;
 - output is valid JSON.
 
 ---
 
-## 31. Recommended Generation Workflow
+## 32. Recommended Generation Workflow
 
 Do **not** regenerate a large dataset blindly in one model pass.
 
@@ -1015,7 +1102,7 @@ For each batch:
 4. identify pending non-skip rows whose `Card` field is empty;
 5. verify there are no source-data conflicts for those rows;
 6. assign new monotonic IDs;
-7. generate card metadata for exactly those approved semantic entries;
+7. generate card metadata for exactly those approved semantic entries, copying each source `Priority` exactly;
 8. merge the cards into the existing dataset in source order;
 9. run the project validator, including runtime distractor simulation;
 10. fix generation-quality failures;
@@ -1036,15 +1123,15 @@ This is safer than asking a model to regenerate 1,000–2,000 cards in a single 
 
 ---
 
-## 32. Polysemy
+## 33. Polysemy
 
 Polysemy selection is handled by the vocabulary-source workflow, not by this generator.
 
 If the source contains:
 
 ```md
-| vreme | время | |
-| vreme | погода | |
+| vreme | время | 1 | |
+| vreme | погода | 2 | |
 ```
 
 generate two cards.
@@ -1052,7 +1139,7 @@ generate two cards.
 If the source contains only:
 
 ```md
-| vreme | время | |
+| vreme | время | 1 | |
 ```
 
 generate only the `time` card. Do not independently add `weather`, even if it is a common meaning.
@@ -1067,12 +1154,12 @@ If a useful missing sense is noticed, report it as a suggestion for the vocabula
 
 ---
 
-## 33. Canonical Example
+## 34. Canonical Example
 
 Source row:
 
 ```md
-| prodavnica | магазин | sr_00123 |
+| prodavnica | магазин | 1 | sr_00123 |
 ```
 
 Generated card:
@@ -1086,6 +1173,7 @@ Generated card:
   "pronunciation": "прода́вница",
   "partOfSpeech": "noun",
   "difficulty": 1,
+  "priority": 1,
   "groups": [
     "shopping",
     "place"
@@ -1121,13 +1209,13 @@ Generated card:
 
 ---
 
-## 34. Final Instruction to the Generator
+## 35. Final Instruction to the Generator
 
 For every **non-skip semantic entry already approved in the vocabulary source**, generate exactly one card representing that entry.
 
 For a pending row:
 
-> Preserve the source Serbian lexical form and semantic intent. Assign a new stable monotonic `sr_XXXXX` ID, derive a short stable English `sense`, choose one concise canonical Russian translation, provide a Russian phonetic pronunciation with stress, assign simple semantic metadata, create exactly 3 natural bilingual examples, and provide exactly 3 plausible fallback distractors for both Serbian and Russian.
+> Preserve the source Serbian lexical form and semantic intent. Assign a new stable monotonic `sr_XXXXX` ID, derive a short stable English `sense`, choose one concise canonical Russian translation, provide a Russian phonetic pronunciation with stress, copy the source `Priority` exactly into `priority`, assign simple semantic metadata, create exactly 3 natural bilingual examples, and provide exactly 3 plausible fallback distractors for both Serbian and Russian.
 
 For an existing row:
 
@@ -1143,7 +1231,7 @@ Ensure the final dataset passes the project card validator.
 
 ---
 
-## 35. Operational Recommendation
+## 36. Operational Recommendation
 
 Use this document both as:
 

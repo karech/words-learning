@@ -4,7 +4,7 @@
 //   node scripts/validate-cards.js data/cards.json      # same, explicit new file
 //   node scripts/validate-cards.js <previous> <new>     # explicit previous
 //
-// Exit code 1 on any error. Warnings never fail.
+// Also checks docs/serbian-words.md Priority against the cards (§46). Exit code 1 on any error. Warnings never fail.
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -12,15 +12,28 @@ import { pathToFileURL } from 'node:url'
 import { buildOptions, normalize } from '../js/distractors.js'
 
 const POS = ['noun', 'verb', 'adjective', 'adverb', 'pronoun', 'preposition', 'conjunction', 'other']
-const REQUIRED = ['id', 'word', 'sense', 'translation', 'pronunciation', 'partOfSpeech', 'difficulty', 'groups', 'distractors', 'examples']
+const REQUIRED = ['id', 'word', 'sense', 'translation', 'pronunciation', 'partOfSpeech', 'difficulty', 'priority', 'groups', 'distractors', 'examples']
 const SENSE = /^[a-z0-9]+(-[a-z0-9]+)*$/
+const SOURCE_PRIORITY = /^(10|[1-9])$/
 
 const nonEmpty = v => typeof v === 'string' && v.trim() !== ''
 const identity = c => `${c.word} / ${c.sense}`
 const hasDuplicates = arr => new Set(arr.map(normalize)).size !== arr.length
+const validPriority = p => Number.isInteger(p) && p >= 1 && p <= 10
+
+// Vocabulary source table rows → [{ srpski, meaning, priority, card }] (strings, as written).
+export function parseSource(text) {
+  return text.split('\n')
+    .filter(l => l.startsWith('| ') && !l.startsWith('| Srpski'))
+    .map(l => {
+      const [, srpski, meaning, priority, card] = l.split('|').map(s => s.trim())
+      return { srpski, meaning, priority, card }
+    })
+}
 
 // history: [{ name, dataset }] — every archived dataset, for the id-reuse check.
-export function validate(dataset, { previous = null, history = [] } = {}) {
+// source: parseSource() rows — Priority format + source ↔ card priority (§46).
+export function validate(dataset, { previous = null, history = [], source = null } = {}) {
   const errors = [], warnings = []
   const err = (where, msg) => errors.push(`${where}: ${msg}`)
 
@@ -46,11 +59,12 @@ export function validate(dataset, { previous = null, history = [] } = {}) {
     if (!SENSE.test(c.sense)) err(at, `bad sense format "${c.sense}" (lowercase kebab-case)`)
     if (!POS.includes(c.partOfSpeech)) err(at, `bad partOfSpeech "${c.partOfSpeech}"`)
     if (![1, 2, 3].includes(c.difficulty)) err(at, `bad difficulty ${c.difficulty}`)
+    if (!validPriority(c.priority)) err(at, `bad priority ${JSON.stringify(c.priority)} (integer 1–10)`)
 
     if (!Array.isArray(c.groups) || c.groups.length < 1 || c.groups.length > 3) err(at, 'groups must have 1–3 entries')
     else if (!c.groups.every(nonEmpty) || hasDuplicates(c.groups)) err(at, 'empty or duplicate groups')
 
-    if (!Array.isArray(c.examples) || c.examples.length < 1 || c.examples.length > 3) err(at, 'examples must have 1–3 entries')
+    if (!Array.isArray(c.examples) || c.examples.length !== 3) err(at, 'examples must have exactly 3 entries')
     else if (!c.examples.every(e => nonEmpty(e?.sr) && nonEmpty(e?.ru))) err(at, 'every example needs sr and ru')
 
     for (const [lang, correct] of [['ru', c.translation], ['sr', c.word]]) {
@@ -96,6 +110,20 @@ export function validate(dataset, { previous = null, history = [] } = {}) {
     }
   }
 
+  // §46: source Priority — 1–10 on non-skip rows, empty on skip rows, equal to the linked card's priority.
+  for (const row of source ?? []) {
+    const at = `source "${row.srpski} / ${row.meaning}"`
+    if (row.card.startsWith('skip')) {
+      if (row.priority) err(at, `skip row must have empty Priority, got "${row.priority}"`)
+      continue
+    }
+    if (!SOURCE_PRIORITY.test(row.priority)) { err(at, `bad Priority "${row.priority}" (1–10)`); continue }
+    if (!row.card) continue // pending
+    const card = newById.get(row.card)
+    if (!card) err(at, `linked ${row.card} not in cards`)
+    else if (card.priority !== Number(row.priority)) err(row.card, `priority ${card.priority} ≠ source Priority ${row.priority}`)
+  }
+
   return { errors, warnings }
 }
 
@@ -114,11 +142,18 @@ function main(args) {
   let dataset
   try { dataset = readJson(newPath) } catch (e) { console.error(`✖ ${newPath}: invalid JSON — ${e.message}`); return 1 }
   const previous = prevPath ? readJson(prevPath) : null
+  const sourcePath = 'docs/serbian-words.md'
+  const source = existsSync(sourcePath) ? parseSource(readFileSync(sourcePath, 'utf8')) : null
 
-  console.log(`Validating ${newPath}` + (prevPath ? ` against ${prevPath}` : ' (no previous dataset, identity checks skipped)'))
-  const { errors, warnings } = validate(dataset, { previous, history })
+  console.log(`Validating ${newPath}` + (prevPath ? ` against ${prevPath}` : ' (no previous dataset, identity checks skipped)')
+    + (source ? ` and ${sourcePath}` : ''))
+  const { errors, warnings } = validate(dataset, { previous, history, source })
   for (const w of warnings) console.log(`⚠ ${w}`)
   for (const e of errors) console.error(`✖ ${e}`)
+  // §46: tier sizes are approximate — report only, never fail.
+  const dist = {}
+  for (const c of dataset.cards ?? []) dist[c?.priority] = (dist[c?.priority] ?? 0) + 1
+  console.log('Priority distribution (cards): ' + Object.entries(dist).map(([p, n]) => `P${p} ${n}`).join(' · '))
   console.log(`${dataset.cards?.length ?? 0} cards, ${errors.length} errors, ${warnings.length} warnings`)
   return errors.length ? 1 : 0
 }

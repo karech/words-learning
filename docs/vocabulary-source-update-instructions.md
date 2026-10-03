@@ -1,73 +1,104 @@
 # Vocabulary Source Update Instructions
 
-This document defines the rules for an agent whose only responsibility is to **extend and maintain the curated vocabulary source** used later to generate `data/cards.json`.
+This document defines the rules for an agent whose responsibility is to **extend and maintain the curated vocabulary source** used to generate `data/cards.json`.
 
-The purpose of this source file is to keep a minimal, stable list of **what should be learned**.
+The source file should remain thin and human-readable.
 
-This agent does **not** generate cards, does not assign card IDs, and does not produce pronunciation, examples, distractors, part-of-speech metadata, difficulty, semantic groups, or other generated card fields.
+It defines:
+
+```text
+WHAT should be learned
++
+WHEN that meaning should enter the learning progression
+```
+
+It does not define the full card representation.
+
+The vocabulary-source agent does **not** generate pronunciation, examples, distractors, part-of-speech metadata, difficulty, runtime semantic groups, or other generated card fields.
 
 ---
 
 ## 1. Role of the Vocabulary Source
 
-The vocabulary source is the source of truth for:
+The vocabulary source is authoritative for:
 
 - which Serbian lexical items should be learned;
-- which distinct semantic meanings of each word should be learned;
-- the processing state of each source row:
+- which distinct semantic meanings should be learned;
+- the learning priority of each exact semantic meaning;
+- the processing state of each row:
   - pending;
   - imported into `cards.json`;
   - intentionally skipped.
 
-All derived card data is generated later by the cards generator:
+The cards generator later derives:
 
 - `id`;
 - `sense`;
-- final `translation`;
+- final Russian `translation`;
 - `pronunciation`;
 - `partOfSpeech`;
 - `difficulty`;
-- semantic `groups`;
-- examples;
+- semantic runtime `groups`;
+- exactly 3 examples;
 - distractors;
-- other card metadata.
+- other generated card metadata.
 
-The vocabulary-source agent decides **WHAT to learn**.
+The vocabulary-source agent decides:
 
-The cards generator decides **HOW to represent it in the application**.
+```text
+WHAT should be learned
++
+WHEN it should enter the beginner learning progression
+```
+
+The cards generator decides:
+
+```text
+HOW that approved meaning is represented in the application
+```
 
 ---
 
 ## 2. Table Format
 
-Use this table format:
+Use:
 
 ```md
-| Srpski | Meaning | Card |
-|---|---|---|
+| Srpski | Meaning | Priority | Card |
+|---|---|---:|---|
 ```
 
 Example:
 
 ```md
-| vreme | time | sr_00411 |
-| vreme | weather | |
-| sad | now, colloquial form | skip: variant sada |
+| vreme | время | 1 | sr_00411 |
+| vreme | погода | 2 | |
+| sad | сейчас, разговорная форма | | skip: variant sada |
 ```
 
-### Columns
+### `Srpski`
 
-#### `Srpski`
+Canonical Serbian lexical form.
 
-The canonical Serbian lexical form.
+### `Meaning`
 
-#### `Meaning`
+Short Russian semantic description identifying exactly what should be learned. Always Russian: this is a Serbian–Russian app.
 
-A short English semantic description that makes it clear **which exact meaning should be learned**.
+It is semantic source metadata, not necessarily the final Russian UI translation.
 
-This is a semantic hint for the cards generator. It does not have to be the final Russian translation shown in the application.
+### `Priority`
 
-#### `Card`
+Learning-order tier for this exact semantic meaning.
+
+Allowed values:
+
+```text
+1–10
+```
+
+Skip rows leave this field empty.
+
+### `Card`
 
 Allowed values:
 
@@ -79,72 +110,177 @@ skip: ...
 
 ---
 
-## 3. Fundamental Rule: One Row = One Meaning
+## 3. One Non-Skip Row = One Meaning
 
-Each non-skip row represents one future semantic card.
+Each non-skip row represents exactly one future semantic card.
 
-If one Serbian word has several materially different everyday meanings, create one row per meaning.
+If one Serbian word has several materially different everyday meanings, create separate rows.
 
 Correct:
 
 ```md
-| vreme | time | |
-| vreme | weather | |
+| vreme | время | 1 | |
+| vreme | погода | 2 | |
 ```
 
 Incorrect:
 
 ```md
-| vreme | time; weather | |
+| vreme | время; погода | 1 | |
 ```
 
 Another example:
 
 ```md
-| račun | bill to be paid | |
-| račun | bank account | |
-| račun | calculation | |
+| račun | счёт, который нужно оплатить | 1 | |
+| račun | банковский счёт | 2 | |
+| račun | расчёт, вычисление | 7 | |
 ```
-
-Different meanings must not be merged into one row.
 
 ---
 
-## 4. Do Not Over-Split One Meaning
+## 4. Do Not Over-Split Meanings
 
 Do not create separate rows for:
 
-- near-synonymous translations of the same meaning;
+- near-synonymous translations of one meaning;
 - tiny contextual nuances;
 - the same meaning used in different situations.
 
-For example, this is normally one semantic entry:
+For example:
 
 ```text
 samo → only / merely
 ```
 
-not two separate rows.
+is normally one semantic entry.
 
-Likewise:
+Likewise, do not split:
 
 ```text
 račun → bill to be paid
 ```
 
-should normally remain one meaning rather than being split into:
-
-```text
-restaurant bill
-cafe bill
-bar bill
-```
-
-The source should capture materially different semantic meanings, not every usage context.
+into separate meanings for restaurants, cafes, and bars.
 
 ---
 
-## 5. Serbian Spelling and Canonical Form
+## 5. Priority Scale
+
+Priority is an **internal learning-order tier**.
+
+It is not linguistic difficulty and not a strict official CEFR label.
+
+Use:
+
+```text
+1  — Core ~100: the most essential beginner meanings
+2  — Next ~200: the next most useful everyday meanings
+3  — Next ~500: broader basic vocabulary
+4  — A1, higher-priority remainder
+5  — A1, lower-priority / more situational
+6  — A2, higher-priority
+7  — A2, lower-priority / more specific
+8  — B1
+9  — B2
+10 — C1+
+```
+
+The approximate sizes of tiers `1–3` are targets, not hard limits.
+
+Semantic usefulness is more important than hitting an exact count.
+
+---
+
+## 6. Priority Is Per Semantic Meaning
+
+Priority belongs to a row/meaning, not merely to the Serbian spelling.
+
+Different meanings of the same word may have different priorities.
+
+Example:
+
+```md
+| račun | счёт, который нужно оплатить | 1 | |
+| račun | банковский счёт | 2 | |
+| račun | расчёт, вычисление | 7 | |
+```
+
+Do not automatically copy one priority to every sense of a word.
+
+---
+
+## 7. Priority Assignment Guidance
+
+### Priority 1 — Core ~100
+
+The meanings a complete beginner needs first.
+
+Typical categories:
+
+- yes/no;
+- pronouns;
+- question words;
+- essential conjunctions/prepositions;
+- basic location/time words;
+- essential verbs;
+- essential shopping/food/service vocabulary;
+- core numeric building blocks;
+- extremely common daily nouns and adjectives.
+
+### Priority 2 — Next ~200
+
+Very common everyday vocabulary needed immediately after the core.
+
+### Priority 3 — Next ~500
+
+Broader foundational vocabulary useful in normal everyday life.
+
+### Priority 4–5 — A1
+
+Remaining A1-range vocabulary:
+
+- `4` = more useful/common;
+- `5` = more situational/lower-priority.
+
+### Priority 6–7 — A2
+
+A2-range vocabulary:
+
+- `6` = more useful/common;
+- `7` = more specific/lower-priority.
+
+### Priority 8 — B1
+
+Intermediate vocabulary that should not enter early beginner learning.
+
+### Priority 9 — B2
+
+Upper-intermediate vocabulary.
+
+### Priority 10 — C1+
+
+Advanced, abstract, specialized, or otherwise late-stage vocabulary.
+
+---
+
+## 8. CEFR Guidance Is Approximate
+
+Do not treat CEFR as an objectively exact property of an individual word.
+
+For priorities `4–10`, estimate pragmatically using:
+
+- everyday usefulness;
+- frequency;
+- semantic complexity;
+- typical learner stage;
+- how likely the meaning is to be needed in daily life.
+
+The purpose is useful learning order, not formal CEFR certification.
+
+---
+
+## 9. Serbian Spelling and Canonical Form
 
 For `Srpski`, use:
 
@@ -161,223 +297,195 @@ dobar
 prodavnica
 kuća
 vreme
+taman
 ```
 
-instead of ordinary inflected forms such as:
+rather than ordinary inflected forms such as:
 
 ```text
 radim
 dobrog
 prodavnice
+tamna
+tamnu
 ```
 
-unless the form itself is a distinct lexical item that should be learned independently.
+unless the form itself is genuinely a distinct lexical item.
 
 ---
 
-## 6. Inflected Forms
+## 10. Inflected Forms
 
-Ordinary conjugated or declined forms do **not** create separate cards when they are simply grammatical forms of an existing lexical item.
+Ordinary conjugated or declined forms do **not** become separate vocabulary cards when they are simply grammatical forms of an existing lemma.
+
+Examples:
+
+```md
+| biti | быть | 1 | sr_00035 |
+| sam | форма biti, 1-е лицо ед. ч. | | skip: inflection biti |
+| si | форма biti, 2-е лицо ед. ч. | | skip: inflection biti |
+```
+
+For adjectives:
+
+```text
+taman
+```
+
+can represent the lexical meaning `dark`.
+
+Do not separately add ordinary forms such as:
+
+```text
+tamna
+tamnu
+tamnog
+```
+
+These forms should appear naturally in card examples instead.
+
+---
+
+## 11. Colloquial and Alternative Forms
+
+If a form is a colloquial/spelling/alternative variant and does not need its own learning card, it may be recorded as a skip row.
 
 Example:
 
 ```md
-| biti | to be | sr_00035 |
-| sam | first-person singular form of biti | skip: inflection biti |
-| si | second-person singular form of biti | skip: inflection biti |
-| je | third-person singular form of biti | skip: inflection biti |
+| sada | сейчас | 1 | sr_00015 |
+| sad | сейчас, разговорная форма | | skip: variant sada |
 ```
 
-The agent must distinguish between:
-
-- a new lexical item;
-- a new semantic meaning;
-- an ordinary grammatical form of an existing item.
+Use skip rows only when recording the reviewed variant is useful.
 
 ---
 
-## 7. Colloquial and Alternative Forms
-
-If a form is a colloquial, spelling, or alternative variant of an existing lexical item and does not need its own card, it may be kept as a `skip` row.
-
-Example:
-
-```md
-| sada | now | sr_00015 |
-| sad | now, colloquial form | skip: variant sada |
-```
-
-Such rows are useful when it is important to record that a variant has already been reviewed.
-
----
-
-## 8. How to Write `Meaning`
+## 12. How to Write `Meaning`
 
 `Meaning` should be:
 
 - short;
 - clear;
-- specific enough to distinguish semantic senses;
-- written in English.
+- written in Russian;
+- specific enough to distinguish senses.
 
-Good examples:
-
-```text
-time
-weather
-bank account
-bill to be paid
-door key
-solution key
-```
-
-Bad examples:
+Good:
 
 ```text
-meaning 1
-another meaning
-variant
-account
-account
+время
+погода
+банковский счёт
+счёт, который нужно оплатить
+ключ от двери
+ключ к решению
 ```
 
-If one Serbian word has multiple meanings, the descriptions must let the cards generator understand unambiguously which semantic meaning each row represents.
+Bad:
 
-Do not try to optimize `Meaning` for the final UI wording. It is semantic source metadata.
+```text
+значение 1
+другое значение
+вариант
+счёт
+счёт
+```
+
+Do not optimize this text for final UI wording. The card generator will choose the canonical Russian translation separately.
 
 ---
 
-## 9. Duplicate Search Is Mandatory
+## 13. Duplicate Search Is Mandatory
 
-Before adding each new semantic row, search the **entire vocabulary source**, not only the current section.
+Before adding a semantic row, search the **entire source**.
 
-Determine whether the same:
+Compare semantic identity, not only exact text.
 
-```text
-Srpski + semantic meaning
-```
+### Same word + same meaning
 
-already exists.
+If it already exists, add nothing.
 
-Semantic comparison matters more than exact wording.
+Do not create a direct duplicate skip row.
 
----
+### Same word + new meaning
 
-### 9.1 Same Word + Same Meaning
+Add a new row next to the other meanings of the same word.
 
-If the same semantic entry already exists, **do not add another row**.
+### Variant/inflection of an existing lexical item
 
-Example: the source already contains:
+Do not create a normal card row.
 
-```md
-| vreme | weather | sr_00412 |
-```
-
-and the new input again contains:
+When useful, record:
 
 ```text
-vreme — weather
-```
-
-Result:
-
-```text
-do nothing
-```
-
-Do not add:
-
-```md
-| vreme | weather | skip: duplicate |
-```
-
-Direct semantic duplicates should simply not exist in the curated source.
-
----
-
-### 9.2 Same Word + New Meaning
-
-Add a new row.
-
-Example: the source already contains:
-
-```md
-| vreme | time | sr_00411 |
-```
-
-and a new useful meaning is discovered:
-
-```text
-vreme — weather
-```
-
-Add:
-
-```md
-| vreme | weather | |
-```
-
-Place it next to the other `vreme` meanings whenever practical.
-
----
-
-### 9.3 Same Meaning but Different Grammatical/Variant Form
-
-If the entry is only an inflected or variant form of an existing lexical item, do not create a new card.
-
-Where useful, record it as:
-
-```text
-skip: inflection ...
-skip: variant ...
+skip: inflection <lemma>
+skip: variant <lemma>
 ```
 
 ---
 
-## 10. `Card` Column
+## 14. Number Vocabulary
 
-### 10.1 Empty `Card`
+Treat numbers as a compositional system rather than generating an independent vocabulary card for every numeric value.
 
-An empty `Card` field means:
+Ensure the essential building blocks are represented:
 
 ```text
-this semantic entry has been approved in the vocabulary source,
-but has not yet been generated into data/cards.json
+0    nula
+1    jedan
+2    dva
+3    tri
+4    četiri
+5    pet
+6    šest
+7    sedam
+8    osam
+9    devet
+10   deset
+100  sto
+1000 hiljada
 ```
 
-The vocabulary-source agent must always leave `Card` empty for new semantic entries.
+These are high-priority vocabulary, normally around Priority `1`.
 
-It must **never assign `sr_XXXXX` IDs**.
+Do not mechanically add arbitrary standalone entries such as:
+
+```text
+90
+200
+300
+400
+```
+
+or every possible tens/hundreds value merely for numeric coverage.
+
+A future numbers-specific exercise can teach composition more effectively.
 
 ---
 
-### 10.2 Imported Card
+## 15. `Card` Column
 
-Example:
+### Pending
+
+An empty `Card` means the semantic meaning is approved but has not yet been generated.
+
+For every new semantic entry, leave `Card` empty.
+
+The vocabulary-source agent never assigns `sr_XXXXX`.
+
+### Imported
 
 ```text
 sr_00123
 ```
 
-means that this semantic row is already linked to a card in `data/cards.json`.
+means the row is already linked to a card.
 
-Such an ID must not be:
+Do not casually change, reuse, or move that ID.
 
-- changed;
-- deleted casually;
-- reused;
-- moved to another source row;
-- manually assigned to a new entry.
+### Skip
 
-An imported source row is considered stable semantic identity.
-
----
-
-### 10.3 `skip`
-
-`skip` means the entry has been reviewed but should not produce a card.
-
-Use a small standard set of reasons where possible:
+Use standardized reasons when possible:
 
 ```text
 skip: duplicate <reference>
@@ -388,294 +496,139 @@ skip: non-serbian
 skip: not-useful
 ```
 
-Where possible, `<reference>` should be the canonical Serbian lemma:
-
-```text
-skip: variant sada
-skip: inflection biti
-```
-
-If useful and the canonical card already exists, an ID may be referenced:
-
-```text
-skip: duplicate sr_00015
-```
-
-Avoid long free-form explanations when a standard reason is enough.
+Skip rows have empty Priority.
 
 ---
 
-## 11. What the Vocabulary-Source Agent May Change
+## 16. What the Agent May Change
 
-The agent's primary job is to add new approved semantic entries.
+The vocabulary-source agent may:
 
-It may:
-
-- add a completely new Serbian word;
-- add a new materially different meaning of an existing word;
-- add a useful `skip` row for an inflection or variant;
-- create a new human-readable section if no existing section fits;
-- improve the wording of a pending row if the semantic intent is still unchanged and the row has no assigned card ID.
-
----
-
-## 12. What the Agent Must Not Change
-
-The vocabulary-source agent must **not edit imported semantic entries** casually.
-
-If the source contains:
-
-```md
-| vreme | time | sr_00411 |
-```
-
-do not change it to:
-
-```md
-| vreme | period of time | sr_00411 |
-```
-
-merely because the new wording seems nicer.
-
-Do not change:
-
-- existing `sr_XXXXX` values;
-- the semantic identity of imported rows;
-- imported `Srpski` values;
-- existing imported `Meaning` values without an explicit migration/correction task;
-- skip decisions without a clear reason.
-
-Corrections to already imported semantic identity are a separate maintenance/migration workflow.
+- add a new Serbian lexical item;
+- add a materially different meaning of an existing word;
+- assign a Priority `1–10` to a new semantic row;
+- add a useful skip row for an inflection/variant;
+- create a new human-readable section if needed;
+- clarify a pending row before import without changing semantic intent.
 
 ---
 
-## 13. Pending Rows
+## 17. What the Agent Must Not Change Casually
 
-Rows with an empty `Card` field may be clarified before import if that improves semantic precision without changing the intended meaning.
+Do not casually edit imported semantic identity.
 
-Example:
+For an imported row, do not change:
 
-```md
-| račun | bill | |
-```
+- `Srpski`;
+- `Meaning`;
+- `Card`;
+- its semantic identity.
 
-may be clarified to:
+Do not manually invent an `sr_XXXXX`.
 
-```md
-| račun | bill to be paid | |
-```
+Changing Priority later is allowed when intentionally re-ranking learning order, because Priority is scheduling metadata rather than immutable lexical identity.
 
-if this is necessary to distinguish it from:
-
-```md
-| račun | bank account | |
-```
-
-Once an `sr_XXXXX` ID has been assigned, the semantic identity should be treated as stable.
+Identity corrections for imported rows require an explicit maintenance/migration task.
 
 ---
 
-## 14. Row Ordering
+## 18. Row Ordering
 
-Do not re-sort the whole source file.
+Do not globally re-sort the source without an explicit migration.
 
 Rules:
 
-- keep existing rows where they are unless there is a strong reason to move them;
-- place a new meaning next to other meanings of the same Serbian word;
-- place a completely new word in the most appropriate existing human-readable section;
-- create a new section only when existing sections clearly do not fit.
+- keep existing rows stable where practical;
+- put a new meaning near other meanings of the same Serbian word;
+- put new words into a sensible human-readable section;
+- create a new section only when useful.
+
+Source sections are for readability only and are not runtime semantic groups.
 
 ---
 
-## 15. Sections Are Only for Human Organization
+## 19. Avoid Noise
 
-Headings such as:
+Do not mechanically add every token encountered.
 
-```md
-## Group 1 — basic words and connectors
-## Group 2 — pronouns and “to be”
-## Group 3 — time
-## Group 4 — shopping and money
-```
-
-exist only to make the source easier to read and maintain.
-
-They are **not card semantic metadata**.
-
-Do not build a strict taxonomy around source sections.
-
-The cards generator assigns runtime `groups` independently.
-
----
-
-## 16. Avoid Noise
-
-Do not mechanically add every token found in a source list.
-
-When processing candidate vocabulary, skip or mark entries appropriately if they are:
+Skip or reject:
 
 - malformed tokens;
-- direct duplicates;
+- direct semantic duplicates;
 - non-Serbian material;
 - accidental proper names;
 - technical noise;
 - ordinary inflected forms instead of lemmas;
-- extremely rare or practically useless meanings.
+- extremely rare or practically useless dictionary senses.
 
-The goal is practical Serbian vocabulary for everyday life, not dictionary completeness.
+Keep useful later-stage vocabulary and assign it a later Priority instead of deleting it merely because beginners do not need it immediately.
 
 ---
 
-## 17. Polysemy
+## 20. Polysemy
 
-For common words, explicitly check whether there are multiple materially different everyday meanings.
+For common words, explicitly check for materially different everyday meanings.
 
 Example:
 
 ```md
-| vreme | time | |
-| vreme | weather | |
+| vreme | время | 1 | |
+| vreme | погода | 2 | |
 ```
-
-Both meanings are useful and should become separate cards.
 
 Another example:
 
 ```md
-| račun | bill to be paid | |
-| račun | bank account | |
-| račun | calculation | |
+| račun | счёт, который нужно оплатить | 1 | |
+| račun | банковский счёт | 2 | |
+| račun | расчёт, вычисление | 7 | |
 ```
 
-Do not add rare dictionary senses merely for completeness.
+Do not add obscure senses solely for dictionary completeness.
 
-The vocabulary-source workflow is responsible for deciding which meanings exist in the learning dataset.
-
-The cards generator must not discover additional meanings independently.
+The vocabulary source is authoritative for which meanings exist.
 
 ---
 
-## 18. Source Update Algorithm
+## 21. Source Update Algorithm
 
-For each new input word or candidate entry:
+For each candidate word:
 
-1. Normalize Serbian spelling to a canonical lexical form.
+1. Normalize Serbian spelling to the canonical lexical form.
 2. Identify materially different everyday meanings worth learning.
-3. For each meaning, search the entire vocabulary source.
-4. If the same `Srpski + semantic meaning` already exists, add nothing.
-5. If the Serbian word exists but this meaning is new, add a new row next to the existing meanings.
-6. If the entry is an inflection or variant of an existing lexical item, add a `skip` row only when recording it is useful.
-7. If it is a completely new semantic entry, add a row with an empty `Card`.
-8. Never create an `sr_XXXXX` ID.
-9. Never modify an existing `sr_XXXXX` ID.
-10. Do not alter imported semantic identity.
-11. Do not create direct semantic duplicate rows.
-12. Do not combine multiple distinct meanings in one row.
+3. Search the entire source for each semantic meaning.
+4. If the same word + meaning already exists, add nothing.
+5. If the word exists but the meaning is new, add a new row near it.
+6. If the candidate is only an inflection/variant, use `skip` only when useful.
+7. Assign Priority `1–10` based on the complete ranking system.
+8. Leave `Card` empty for a new semantic row.
+9. Never create an `sr_XXXXX`.
+10. Never merge distinct meanings into one row.
+11. Do not create arbitrary numeric-composition rows.
+12. Do not turn ordinary inflections into vocabulary cards.
 
 ---
 
-## 19. Example Update
+## 22. Quality Checklist
 
-Suppose the incoming data contains:
+Before saving:
 
-```text
-vreme — time
-vreme — weather
-sada — now
-sad — now
-račun — bank account
-```
-
-The source already contains:
-
-```md
-| vreme | time | sr_00411 |
-| sada | now | sr_00015 |
-| sad | now, colloquial form | skip: variant sada |
-```
-
-Expected result:
-
-```md
-| vreme | time | sr_00411 |
-| vreme | weather | |
-```
-
-Do not add duplicate rows for `sada` or `sad`.
-
-If `račun / bank account` does not already exist, add:
-
-```md
-| račun | bank account | |
-```
+- each new row is genuinely useful;
+- one row represents one semantic meaning;
+- direct semantic duplicates do not exist;
+- polysemous meanings are split where useful;
+- each new non-skip row has Priority `1–10`;
+- Priority reflects learning order rather than linguistic difficulty;
+- Priority 1 is reserved for truly core vocabulary;
+- numbers are represented by useful building blocks rather than arbitrary compositions;
+- ordinary inflections are not normal cards;
+- new rows have empty `Card`;
+- no `sr_XXXXX` was manually created;
+- imported semantic identity was not rewritten;
+- later-stage useful vocabulary was not removed merely because it is lower priority.
 
 ---
 
-## 20. Responsibility Boundary
+## 23. Short Agent Instruction
 
-### Vocabulary-source agent
-
-Responsible for:
-
-```text
-WHAT should be learned
-```
-
-Specifically:
-
-```text
-Srpski
-+
-semantic meaning
-+
-source status
-```
-
-### Cards generator
-
-Responsible for:
-
-```text
-HOW the approved meaning is represented in the application
-```
-
-It generates:
-
-```text
-id
-sense
-translation
-pronunciation
-partOfSpeech
-difficulty
-groups
-exactly 3 examples
-distractors
-```
-
-Do not mix these responsibilities.
-
----
-
-## 21. Quality Checklist Before Saving Changes
-
-Before completing a source update, verify:
-
-- every new row is actually useful;
-- direct semantic duplicates were not added;
-- different meanings of the same word are separate rows;
-- multiple distinct meanings were not joined with `;`;
-- every new future card has an empty `Card`;
-- no `sr_XXXXX` ID was created manually;
-- no existing `sr_XXXXX` ID was changed;
-- ordinary inflections/variants were not turned into cards without good reason;
-- new meanings were placed near existing meanings of the same word;
-- imported semantic rows were not rewritten;
-- section organization remains readable.
-
----
-
-## 22. Short Agent Instruction
-
-> Maintain the vocabulary source as the authoritative list of **what should be learned**. One non-skip row represents one materially distinct Serbian lexical meaning. Before adding anything, search the entire source for a semantic duplicate. If the same word already exists with a different useful everyday meaning, add a separate row next to it. Leave `Card` empty for every newly approved meaning. Never assign or modify `sr_XXXXX` IDs. Ordinary grammatical forms and spelling/colloquial variants normally do not become separate cards; use a standard `skip` row when it is useful to record that they were reviewed. Do not casually edit already imported semantic rows.
+> Maintain the vocabulary source as the authoritative list of **what should be learned and when it should enter learning**. One non-skip row represents one materially distinct Serbian lexical meaning. Search the entire source before adding a semantic duplicate. Assign every normal row a Priority from `1` to `10`: Core ~100, next ~200, next ~500, remaining A1 across 4–5, A2 across 6–7, B1 at 8, B2 at 9, and C1+ at 10. Priority belongs to the meaning, not only the spelling. Keep canonical lemmas rather than ordinary inflected forms. Treat numbers as compositional: keep essential building blocks such as 0–10, 100, and 1000 rather than arbitrary hundreds/tens. Leave `Card` empty for new rows and never assign or modify `sr_XXXXX` IDs without an explicit migration task.

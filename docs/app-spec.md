@@ -297,6 +297,7 @@ Example:
 
   "partOfSpeech": "noun",
   "difficulty": 1,
+  "priority": 1,
 
   "groups": [
     "restaurant",
@@ -320,10 +321,20 @@ Example:
     {
       "sr": "Molim vas, račun.",
       "ru": "Счёт, пожалуйста."
+    },
+    {
+      "sr": "Mogu li da dobijem račun?",
+      "ru": "Можно мне счёт?"
+    },
+    {
+      "sr": "Račun je na stolu.",
+      "ru": "Счёт на столе."
     }
   ]
 }
 ```
+
+`priority` (integer `1–10`) is copied from the vocabulary source and controls when a card may enter learning as new (§35a). The app never calculates or changes it. `priority` and `difficulty` are independent.
 
 ---
 
@@ -409,7 +420,7 @@ Do not generate pronunciation at runtime.
 
 ## 9. Examples
 
-Each card contains between **1 and 3 examples**.
+Each card contains exactly **3 examples**.
 
 Every example contains both language variants:
 
@@ -941,7 +952,7 @@ Label:
 Дальше
 ```
 
-Double-tap guard: for 300ms after the slot changes (answer shown, or a new card), taps on the slot are ignored, so a double tap cannot hit the button that just appeared (e.g. `Не знаю` → `Дальше`, or `Уже знаю` → `Уже знаю` on the next card).
+Double-tap guard: for 300ms (`TAP_GUARD_MS`, §56) after the slot changes (answer shown, or a new card), taps on the slot are ignored, so a double tap cannot hit the button that just appeared (e.g. `Не знаю` → `Дальше`, or `Уже знаю` → `Уже знаю` on the next card).
 
 ---
 
@@ -1258,6 +1269,8 @@ Explanatory copy:
 
 > Определяет, как часто среди повторений появляются новые слова.
 
+The same setting also sets how many new, not yet mastered cards may be open at once (§35, §35a). There is no tier selector; tier progression is automatic and priority numbers are not shown.
+
 ### Update
 
 Section `Обновление`. Show the release version (§3):
@@ -1309,6 +1322,7 @@ Example:
       "correct": 8,
       "wrong": 3,
       "unknown": 1,
+      "known": 0,
       "streak": 2,
       "level": 3,
       "lastShownAt": "...",
@@ -1323,6 +1337,7 @@ Example:
       "correct": 2,
       "wrong": 3,
       "unknown": 0,
+      "known": 0,
       "streak": 0,
       "level": 1,
       "lastShownAt": "...",
@@ -1342,8 +1357,11 @@ shown      = incremented once each time the item is actually displayed
 answered   = regular answers only — one of the 4 options selected
              ("Уже знаю" and "Не знаю" do not count)
 unknown    = "Не знаю" presses
+known      = "Уже знаю" presses (tier mastery signal, §35a)
 lastResult = "correct" | "wrong" | "unknown" | "known"
 ```
+
+`correct` and `known` only ever grow; later failures lower `level` but never these counters.
 
 ---
 
@@ -1370,8 +1388,9 @@ All interval values must be centralized in `config.js`.
 ### Correct answer
 
 ```text
-level = min(6, level + 1)
+level = min(6, level + 1)        # step: CORRECT_LEVEL_STEP
 streak += 1
+correct += 1
 lastResult = correct
 ```
 
@@ -1380,7 +1399,7 @@ lastResult = correct
 ### Wrong answer
 
 ```text
-level = max(0, level - 2)
+level = max(0, level - 2)        # step: FAILURE_LEVEL_STEP
 streak = 0
 lastResult = wrong
 nextReviewAt = now
@@ -1430,9 +1449,12 @@ sets for the current direction:
 level = 6
 nextReviewAt = now + 30 days
 lastResult = known
+known += 1
 ```
 
 and records `alreadyKnown++` in daily stats.
+
+The card immediately counts as mastered for tier progression (§35a); no further correct answers are needed.
 
 `shown` is not incremented again (it was already counted when the card was displayed). `answered`, `correct`, `wrong`, `unknown` are not changed.
 
@@ -1456,7 +1478,18 @@ nextReviewAt <= now
 
 ### New
 
-Cards that have never been studied.
+Cards that have never been studied, limited by priority tiers (§35a):
+
+```text
+New = cards where
+        card.priority == activeTier
+        AND card is not introduced
+      — only while activeLearningCards < MAX_ACTIVE_LEARNING[newWords]
+```
+
+Unseen cards from other priorities never enter New. When the cap is reached, New is treated as empty and its weight is redistributed (§35).
+
+Exception: an unscheduled direction of an already introduced card (e.g. after switching from RU → SR to SR → RU) stays in New regardless of tier and cap — the card is already being learned.
 
 In Mixed mode, a new card initially exposes only SR → RU.
 
@@ -1471,6 +1504,8 @@ If the app is closed while the question is still unanswered, the item remains Ne
 ### Fresh
 
 Learning items that have already been seen but are not yet due.
+
+Review and Fresh are never filtered by priority: introduced vocabulary from every tier keeps being repeated.
 
 ---
 
@@ -1503,6 +1538,63 @@ Fresh  10%
 ```
 
 If a selected pool is empty, redistribute its probability among available pools.
+
+The same setting sets the active-learning cap (§35a):
+
+```text
+Меньше   MAX_ACTIVE_LEARNING = 10
+Обычно   MAX_ACTIVE_LEARNING = 20
+Больше   MAX_ACTIVE_LEARNING = 30
+```
+
+---
+
+## 35a. Priority Tiers
+
+Card `priority` (§6) stages vocabulary: priorities are opened in ascending order `1 → 10`. Tier logic is card-level (both directions together); scheduling stays per direction.
+
+### Introduced
+
+A card is introduced after its first completed interaction in any direction: regular answer, `Не знаю` or `Уже знаю`. Shown-only is not introduced (§34).
+
+### Mastered (for tier progression)
+
+```text
+mastered =
+  (sr-ru.correct + ru-sr.correct) >= TIER_MASTERY_CORRECT   # 5
+  OR "Уже знаю" was ever pressed for the card (known > 0)
+```
+
+Uses only counters that never decrease, so a later wrong answer or `Не знаю` lowers `level` but never un-masters a card or reopens a completed tier. `Не знаю` makes a card introduced, not mastered.
+
+### Active tier
+
+Per priority:
+
+```text
+unseenCount     = cards not introduced
+unmasteredCount = introduced cards not mastered
+
+complete = unseenCount == 0 AND unmasteredCount <= TIER_MAX_UNMASTERED   # 5
+```
+
+The active tier is the first incomplete priority. If all are complete, it is the highest priority (review only).
+
+An absolute weak-card limit is used instead of a percentage so large tiers cannot leave dozens of weak cards behind.
+
+### Active-learning window
+
+```text
+activeLearningCards = introduced, not mastered cards of the active tier
+```
+
+New is available only while `activeLearningCards < MAX_ACTIVE_LEARNING[newWords]` (§35). Space reopens automatically as cards get mastered.
+
+### Not persisted
+
+The active tier is never stored. It is derived from `cards + progress` on every next-item selection (a scan of a few thousand cards is cheap), so it is always current after answers, `Уже знаю` / `Не знаю`, reset and dataset updates (added cards in an earlier priority reopen that tier).
+
+Tier functions are plain JavaScript in `scheduler.js` (`isCardIntroduced`, `isCardMastered`, `getTierStats`, `calculateActiveTier`).
 
 ---
 
@@ -1552,7 +1644,7 @@ currentInterval = max(interval(level), 10 minutes)
 
 The `10 minutes` floor avoids division by zero at level 0. It is used only for the priority calculation, not for scheduling.
 
-Keep coefficients centralized in `scheduler.js` or `config.js`.
+Keep coefficients centralized in `config.js` (`PRIORITY` — the in-pool selection weight, unrelated to card `priority`).
 
 Do not scatter magic constants across the codebase.
 
@@ -1808,10 +1900,11 @@ Validate at minimum:
 - non-empty `word`;
 - non-empty `translation`;
 - non-empty `pronunciation`;
-- `examples.length` is between 1 and 3;
+- `examples.length` is exactly 3;
 - every example contains both `sr` and `ru`;
 - `partOfSpeech` belongs to an allowed enum;
 - `difficulty` is `1`, `2`, or `3`;
+- `priority` is a JSON integer `1–10` (`0`, `11`, `1.5`, `"1"`, `null` fail);
 - `groups` contains 1–3 entries;
 - no duplicate groups;
 - `distractors.ru` and `distractors.sr` each contain exactly 3 entries;
@@ -1819,6 +1912,14 @@ Validate at minimum:
 - fallback distractor does not equal the correct answer.
 
 Duplicate checks use the normalization from §40.
+
+Vocabulary source checks (`docs/serbian-words.md`, read by the validator when present):
+
+- non-skip row: `Priority` is an integer `1–10`;
+- skip row: `Priority` is empty;
+- linked row (`sr_XXXXX`): the card exists and `card.priority == Priority` — never normalized or inferred.
+
+The validator prints the card priority distribution (`P1 …`, `P2 …`). Tier sizes are approximate; the distribution never fails validation.
 
 Warnings (do not fail validation):
 
@@ -1885,6 +1986,7 @@ Allowed changes without changing `id`:
 - examples;
 - part of speech corrections;
 - difficulty;
+- priority (re-ranking learning order);
 - groups;
 - distractors.
 
@@ -2094,7 +2196,7 @@ Alpine/UI code should call them rather than contain the learning algorithm itsel
 
 ## 56. Configuration
 
-Keep important tunable values centralized, for example in:
+All algorithm and tuning constants live in one module:
 
 ```text
 js/config.js
@@ -2102,14 +2204,20 @@ js/config.js
 
 Including:
 
-- spaced-repetition intervals;
+- spaced-repetition intervals and correct/failure level steps;
 - new/review/fresh pool weights;
+- active-learning caps per `Новые слова` setting;
+- tier mastery threshold and max unmastered cards per tier;
 - retry range `5–10`;
 - recent-card exclusion size;
-- scheduler coefficients;
+- in-pool selection coefficients;
+- distractor difficulty window;
+- double-tap guard duration;
 - statistics retention days.
 
-Do not duplicate these constants throughout the codebase.
+Every constant has a comment: what it controls and what changes when it is raised or lowered. Plain immutable exports; no DOM selectors or runtime objects.
+
+Do not duplicate these constants throughout the codebase. Tests import the same values.
 
 ---
 
@@ -2139,3 +2247,8 @@ The application is considered complete for v1 when:
 18. The card validator passes the dataset.
 19. The UI matches the approved Concept B references.
 20. No network is required for normal usage after the app has been cached.
+21. New cards come only from the active priority tier; Review/Fresh come from all introduced cards.
+22. A card is tier-mastered after 5 cumulative correct answers (both directions) or `Уже знаю`.
+23. A tier advances only when all its cards are introduced and at most 5 remain unmastered.
+24. The active-learning cap (10 / 20 / 30 by `Новые слова`) temporarily disables New.
+25. The active tier is derived from cards + progress, never stored.

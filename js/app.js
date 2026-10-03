@@ -2,6 +2,7 @@
 
 import Alpine from '../vendor/alpine.esm.min.js'
 import { loadCards, pickExample } from './cards.js'
+import { TAP_GUARD_MS } from './config.js'
 import { buildOptions } from './distractors.js'
 import * as pwa from './pwa.js'
 import * as question from './question.js'
@@ -27,7 +28,7 @@ Alpine.data('app', () => ({
 
   // Action slot swaps or gets a new card → ignore its taps briefly, so a double tap can't hit the next button.
   tapGuardUntil: 0,
-  guardTaps() { this.tapGuardUntil = Date.now() + 300 },
+  guardTaps() { this.tapGuardUntil = Date.now() + TAP_GUARD_MS },
   tapGuarded() { return Date.now() < this.tapGuardUntil },
   get fb() { return question.feedback(this.q, this.result) },
   answerClass(i) { return question.answerClass(i, this.q, this.result, this.selected) },

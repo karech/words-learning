@@ -29,3 +29,8 @@ node --test
 # Validate data/cards.json (against the latest data/history/* if present)
 node scripts/validate-cards.js
 ```
+
+## Claude Code skills
+
+- `/add-words <target>` — grow `docs/serbian-words.md` to `<target>` distinct Serbian words (e.g. `/add-words 2000`), following [`docs/vocabulary-source-update-instructions.md`](docs/vocabulary-source-update-instructions.md). Skill: [`.claude/skills/add-words/`](.claude/skills/add-words/SKILL.md).
+- `/update-cards new [N]` — create cards for the next N (default 100) pending rows (empty `Card`) of `docs/serbian-words.md` and backfill their ids. `/update-cards refresh "<what changed>" [N]` — re-apply changed rules to the next N existing cards (id/word/sense untouched). Following [`docs/vocabulary-cards-generation-spec.md`](docs/vocabulary-cards-generation-spec.md). Skill: [`.claude/skills/update-cards/`](.claude/skills/update-cards/SKILL.md).

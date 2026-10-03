@@ -1,16 +1,52 @@
-// Level-based SRS + next-item selection (spec §11, §30–37). No DOM/Alpine.
+// Level-based SRS + next-item selection + priority tiers (spec §11, §30–37, §35a). No DOM/Alpine.
 // `now` is epoch ms; `random` is injectable for tests. Dates are stored as ISO strings.
 //
 // An item (card + direction) is "scheduled" once it has nextReviewAt.
 // Pools: New = allowed but not scheduled; Review = due; Fresh = scheduled, not due.
 
-import { INTERVALS, MAX_LEVEL, POOL_WEIGHTS, RETRY_MIN, RETRY_MAX, RECENT_EXCLUSION, PRIORITY } from './config.js'
+import {
+  INTERVALS, MAX_LEVEL, CORRECT_LEVEL_STEP, FAILURE_LEVEL_STEP, POOL_WEIGHTS, RETRY_MIN, RETRY_MAX,
+  RECENT_EXCLUSION, PRIORITY, MAX_ACTIVE_LEARNING, TIER_MASTERY_CORRECT, TIER_MAX_UNMASTERED,
+} from './config.js'
+import { isFirstInteraction } from './stats.js'
 
 const DIRS = { 'mixed': ['sr-ru', 'ru-sr'], 'sr-ru': ['sr-ru'], 'ru-sr': ['ru-sr'] }
 
 const NEW_ITEM = {
-  shown: 0, answered: 0, correct: 0, wrong: 0, unknown: 0, streak: 0, level: 0,
+  shown: 0, answered: 0, correct: 0, wrong: 0, unknown: 0, known: 0, streak: 0, level: 0,
   lastShownAt: null, lastAnsweredAt: null, nextReviewAt: null, lastResult: null,
+}
+
+// --- Priority tiers (§35a): derived from cards + progress, never stored. Card-level, both directions. ---
+
+// Answer, "Не знаю" or "Уже знаю" in any direction. Shown-only is not introduced.
+export const isCardIntroduced = (cardId, progress) => !isFirstInteraction(progress[cardId])
+
+// Historical counters only (correct, known) — later failures never un-master a card.
+export function isCardMastered(cardId, progress) {
+  const items = Object.values(progress[cardId] ?? {})
+  return items.some(i => i?.known > 0)
+    || items.reduce((sum, i) => sum + (i?.correct ?? 0), 0) >= TIER_MASTERY_CORRECT
+}
+
+// unseen = not introduced; unmastered = introduced but not mastered.
+export function getTierStats(priority, cards, progress) {
+  const stats = { unseen: 0, unmastered: 0 }
+  for (const card of cards) {
+    if (card.priority !== priority) continue
+    if (!isCardIntroduced(card.id, progress)) stats.unseen++
+    else if (!isCardMastered(card.id, progress)) stats.unmastered++
+  }
+  return stats
+}
+
+// First incomplete priority; all complete → the highest one (review-only).
+export function calculateActiveTier(cards, progress) {
+  const tiers = [...new Set(cards.map(c => c.priority))].sort((a, b) => a - b)
+  return tiers.find(p => {
+    const { unseen, unmastered } = getTierStats(p, cards, progress)
+    return unseen > 0 || unmastered > TIER_MAX_UNMASTERED
+  }) ?? tiers.at(-1)
 }
 
 export const createSession = () => ({ count: 0, recent: [], retry: [] })
@@ -49,7 +85,7 @@ function weightedPick(entries, weightOf, random) {
   return entries.at(-1)
 }
 
-function buildPools(cards, progress, mode, now, skip) {
+function buildPools(cards, progress, mode, now, skip, newAllowed) {
   const pools = { review: [], new: [], fresh: [] }
   for (const card of cards) {
     if (skip(card.id)) continue
@@ -57,7 +93,7 @@ function buildPools(cards, progress, mode, now, skip) {
       const item = getItem(progress, card.id, dir)
       if (!item.nextReviewAt) {
         // Mixed: a new card is exposed SR→RU first; RU→SR appears once scheduled (§11).
-        if (!(mode === 'mixed' && dir === 'ru-sr')) pools.new.push({ card, dir, item })
+        if (!(mode === 'mixed' && dir === 'ru-sr') && newAllowed(card)) pools.new.push({ card, dir, item })
       } else {
         pools[Date.parse(item.nextReviewAt) <= now ? 'review' : 'fresh'].push({ card, dir, item })
       }
@@ -88,13 +124,19 @@ export function nextItem({ cards, progress, settings, session, now, random = Mat
     const due = takeRetry(r => r.at <= session.count)
     if (due) return due
 
+    // New: unseen cards only from the active tier, while its open window is below the cap (§34, §35a).
+    // Unscheduled directions of already introduced cards (direction switch) stay New regardless.
+    const tier = calculateActiveTier(cards, progress)
+    const canIntroduce = getTierStats(tier, cards, progress).unmastered < MAX_ACTIVE_LEARNING[settings.newWords]
+    const newAllowed = card => isCardIntroduced(card.id, progress) || (canIntroduce && card.priority === tier)
+
     const queued = new Set(session.retry.map(r => r.cardId))
     const recent = new Set(session.recent)
-    let pools = buildPools(cards, progress, settings.direction, now, id => queued.has(id) || recent.has(id))
+    let pools = buildPools(cards, progress, settings.direction, now, id => queued.has(id) || recent.has(id), newAllowed)
     let available = Object.keys(pools).filter(p => pools[p].length)
     if (!available.length) {
       // "Where possible" (§37): fall back to ignoring recent exclusion.
-      pools = buildPools(cards, progress, settings.direction, now, id => queued.has(id))
+      pools = buildPools(cards, progress, settings.direction, now, id => queued.has(id), newAllowed)
       available = Object.keys(pools).filter(p => pools[p].length)
     }
     // Only queued retries left (tiny dataset): take the earliest one now.
@@ -112,14 +154,14 @@ export function markShown(progress, cardId, dir, now) {
   return update(progress, cardId, dir, { shown: item.shown + 1, lastShownAt: iso(now) })
 }
 
-// Failure rule shared by wrong answer and "Не знаю": level −2, due now, session retry in 5–10.
+// Failure rule shared by wrong answer and "Не знаю": level −FAILURE_LEVEL_STEP, due now, session retry.
 function fail({ progress, session, cardId, direction, now, random }, changes) {
   const item = getItem(progress, cardId, direction)
   const k = RETRY_MIN + Math.floor(random() * (RETRY_MAX - RETRY_MIN + 1))
   session.retry = session.retry.filter(r => !(r.cardId === cardId && r.direction === direction))
   session.retry.push({ cardId, direction, at: session.count + k })
   return update(progress, cardId, direction, {
-    streak: 0, level: Math.max(0, item.level - 2), nextReviewAt: iso(now), ...changes(item),
+    streak: 0, level: Math.max(0, item.level - FAILURE_LEVEL_STEP), nextReviewAt: iso(now), ...changes(item),
   })
 }
 
@@ -132,7 +174,7 @@ export function answer({ progress, session, cardId, direction, correct, now, ran
       item => ({ ...base, wrong: item.wrong + 1, lastResult: 'wrong' }))
   }
 
-  const level = Math.min(MAX_LEVEL, item.level + 1)
+  const level = Math.min(MAX_LEVEL, item.level + CORRECT_LEVEL_STEP)
   const result = update(progress, cardId, direction, {
     ...base, correct: item.correct + 1, streak: item.streak + 1, lastResult: 'correct',
     level, nextReviewAt: iso(now + INTERVALS[level]),
@@ -144,9 +186,13 @@ export function answer({ progress, session, cardId, direction, correct, now, ran
   return result
 }
 
-// "Уже знаю" (§33): this direction only; answered/shown untouched.
-export const markKnown = ({ progress, cardId, direction, now }) =>
-  update(progress, cardId, direction, { level: MAX_LEVEL, nextReviewAt: iso(now + INTERVALS[MAX_LEVEL]), lastResult: 'known' })
+// "Уже знаю" (§33): this direction only; answered/shown untouched. `known` counter = tier mastery (§35a).
+export function markKnown({ progress, cardId, direction, now }) {
+  const item = getItem(progress, cardId, direction)
+  return update(progress, cardId, direction, {
+    level: MAX_LEVEL, nextReviewAt: iso(now + INTERVALS[MAX_LEVEL]), lastResult: 'known', known: item.known + 1,
+  })
+}
 
 // "Не знаю" (§25a, §32): failure rule, but not an answer — answered/correct/wrong/shown untouched.
 export const markUnknown = ({ progress, session, cardId, direction, now, random = Math.random }) =>

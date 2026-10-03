@@ -65,6 +65,7 @@ Current knowledge files:
  - `pwa.md` — version.txt, Service Worker, precache list, update flow, Pages deploy, icons
  - `alpine.md` — vendored ESM Alpine, app.js wiring, logic vs UI split
  - `cards-data.md` — cards.json shape, normalization, validator, history, dev seed
+ - `scheduler.md` — config constants, priority tiers, New-pool gating, scheduler test tricks
 
 If you discover something important (a gotcha, a version constraint, a non-obvious pattern),
 **suggest** adding it to the relevant knowledge file. Don't write it yourself.
