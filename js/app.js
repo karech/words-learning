@@ -23,7 +23,12 @@ Alpine.data('app', () => ({
   result: null,   // null | 'correct' | 'wrong' | 'unknown'
   selected: null, // chosen option index (regular answer only)
 
-  get locked() { return this.result !== null }, // answers, Уже знаю / Не знаю disabled; Дальше enabled
+  get locked() { return this.result !== null }, // answers disabled; action slot shows Дальше
+
+  // Action slot swaps or gets a new card → ignore its taps briefly, so a double tap can't hit the next button.
+  tapGuardUntil: 0,
+  guardTaps() { this.tapGuardUntil = Date.now() + 300 },
+  tapGuarded() { return Date.now() < this.tapGuardUntil },
   get fb() { return question.feedback(this.q, this.result) },
   answerClass(i) { return question.answerClass(i, this.q, this.result, this.selected) },
 
@@ -58,6 +63,7 @@ Alpine.data('app', () => ({
     storage.saveProgress(this.progress)
     this.result = null
     this.selected = null
+    this.guardTaps()
     this.q = {
       ...pick,
       ...built,
@@ -82,18 +88,20 @@ Alpine.data('app', () => ({
     this.act(correct ? 'correct' : 'wrong', args => scheduler.answer({ ...args, correct }))
     this.selected = i
     this.result = correct ? 'correct' : 'wrong'
+    this.guardTaps()
   },
 
   // "Не знаю" (§25a): reveal the answer, no Верно/Ошибка.
   markUnknown() {
-    if (this.locked) return
+    if (this.tapGuarded()) return
     this.act('unknown', scheduler.markUnknown)
     this.result = 'unknown'
+    this.guardTaps()
   },
 
   // "Уже знаю" (§33): no feedback state, go straight to the next card.
   markKnown() {
-    if (this.locked) return
+    if (this.tapGuarded()) return
     this.act('known', scheduler.markKnown)
     this.next()
   },
@@ -147,5 +155,8 @@ Alpine.data('app', () => ({
     this.next()
   },
 }))
+
+// No pinch zoom (iOS ignores user-scalable=no); Safari-only gesture events.
+for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, e => e.preventDefault())
 
 Alpine.start()

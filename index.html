@@ -34,10 +34,6 @@
               <p class="word" x-text="q.prompt" :lang="q.direction === 'sr-ru' ? 'sr-Latn' : 'ru'"></p>
               <div class="pronunciation" x-text="q.direction === 'sr-ru' ? q.card.pronunciation : ''"></div>
               <p class="example" x-text="q.direction === 'sr-ru' ? q.example.sr : q.example.ru"></p>
-              <div class="secondary-actions">
-                <button class="btn-secondary" type="button" :disabled="locked" @click="markKnown()">Уже знаю</button>
-                <button class="btn-secondary" type="button" :disabled="locked" @click="markUnknown()">Не знаю</button>
-              </div>
             </section>
 
             <section class="feedback" aria-live="polite">
@@ -68,7 +64,14 @@
                   </button>
                 </template>
               </div>
-              <button class="btn-next" type="button" :disabled="!locked" @click="next()">Дальше</button>
+              <!-- One slot: Уже знаю / Не знаю before answering, Дальше after. Both stay in layout (visibility only). -->
+              <div class="actions">
+                <div class="actions-row" :class="locked && 'is-hidden'">
+                  <button class="btn-main is-soft" type="button" @click="markKnown()">Уже знаю</button>
+                  <button class="btn-main is-soft" type="button" @click="markUnknown()">Не знаю</button>
+                </div>
+                <button class="btn-main" type="button" :class="!locked && 'is-hidden'" @click="tapGuarded() || next()">Дальше</button>
+              </div>
             </section>
           </div>
         </template>

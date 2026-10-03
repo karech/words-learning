@@ -656,7 +656,7 @@ HEADER + WORD AREA
 
 RESERVED FEEDBACK AREA
 
-PINNED ANSWERS + NEXT
+PINNED ANSWERS + ACTION SLOT
 ```
 
 Critical UX requirement:
@@ -710,7 +710,7 @@ Reference geometry:
 x: 20
 y: ~74
 width: 350
-height: ~218
+height: ~160
 ```
 
 Content is center-aligned.
@@ -721,7 +721,6 @@ Order:
 word
 pronunciation
 example
-[ Уже знаю ] [ Не знаю ]
 ```
 
 ### Word
@@ -760,7 +759,7 @@ The text may wrap onto multiple lines.
 
 ## 18. `Уже знаю` / `Не знаю`
 
-The word area shows two secondary buttons side by side:
+Before answering, the action slot (§22) shows two buttons side by side, each half of the slot width:
 
 ```text
 [ Уже знаю ] [ Не знаю ]
@@ -768,16 +767,15 @@ The word area shows two secondary buttons side by side:
 
 `Не знаю` exists so the user never has to guess when they don't know the word.
 
-Each button:
+Each button has the same height, radius and font as `Дальше` (§22), in a secondary style:
 
 ```text
-width: ~138px
-height: ≥ 44px
-border-radius: 12px
+background: surface
+border: 1px border
+text: primary
 ```
 
 - a proper button with a full touch area, not a small text link;
-- visually secondary relative to the answer buttons;
 - easy to tap on a phone.
 
 Both actions apply only to the current:
@@ -788,9 +786,9 @@ card + direction
 
 Neither modifies the other direction.
 
-After any action — a regular answer, `Уже знаю` or `Не знаю` — both buttons become disabled until the next card, and stay in place (no layout shift).
+After a regular answer or `Не знаю`, both buttons are replaced by `Дальше` in the same slot (no layout shift).
 
-`Уже знаю` moves straight to the next card (no feedback state). `Не знаю` reveals the answer (§25a).
+`Уже знаю` moves straight to the next card (no feedback state), so the slot keeps showing `Уже знаю` / `Не знаю`. `Не знаю` reveals the answer (§25a).
 
 ---
 
@@ -817,7 +815,7 @@ After answering, result content is rendered inside this reserved space.
 
 ## 20. Bottom Answer Panel
 
-The answers and Next button form a bottom panel visually anchored to the bottom of the usable viewport.
+The answers and the action slot form a bottom panel visually anchored to the bottom of the usable viewport.
 
 Reference:
 
@@ -853,7 +851,7 @@ Answer 2
 Answer 3
 Answer 4
 
-Next
+[ Уже знаю ] [ Не знаю ]   or   [ Дальше ]
 ```
 
 Answers must always be vertical.
@@ -917,26 +915,25 @@ Do not indicate answer status using color alone.
 
 ---
 
-## 22. Next Button
+## 22. Action Slot and Next Button
 
-Reference height:
+One slot at the bottom of the panel, below the answers:
+
+- before answering: `Уже знаю` / `Не знаю` (§18);
+- after a regular answer or `Не знаю`: `Дальше`.
+
+Both states occupy the same place and height; swapping them must not change the layout or blink (e.g. keep both in layout and toggle visibility).
+
+`Дальше`:
 
 ```text
-52px
+height: 52px
+border-radius: 14px
+font-size: 16px
+font-weight: 600
+background: primary
+text: white
 ```
-
-Before answering:
-
-- disabled;
-- gray background;
-- gray text;
-- not clickable.
-
-After answering:
-
-- primary background;
-- white text;
-- clickable.
 
 Label:
 
@@ -944,7 +941,7 @@ Label:
 Дальше
 ```
 
-The button must always remain in the same visual position.
+Double-tap guard: for 300ms after the slot changes (answer shown, or a new card), taps on the slot are ignored, so a double tap cannot hit the button that just appeared (e.g. `Не знаю` → `Дальше`, or `Уже знаю` → `Уже знаю` on the next card).
 
 ---
 
@@ -954,8 +951,7 @@ Before an answer:
 
 - all four answer buttons are neutral;
 - feedback area is empty;
-- `Дальше` is disabled;
-- `Уже знаю` and `Не знаю` are available.
+- the action slot shows `Уже знаю` and `Не знаю`.
 
 After one answer is selected (or `Не знаю` is pressed), the answer cannot be changed: all four answer buttons become non-interactive.
 
@@ -973,7 +969,7 @@ On a correct answer:
 ```
 
 - display the translated example;
-- enable `Дальше`.
+- the action slot shows `Дальше`.
 
 ---
 
@@ -991,7 +987,7 @@ On a wrong answer:
 
 - display the correct answer;
 - display the translated/other-language version of the example;
-- enable `Дальше`.
+- the action slot shows `Дальше`.
 
 For RU → SR, after answering it is valid to display:
 
@@ -1014,8 +1010,7 @@ After pressing `Не знаю`:
 - all four answer buttons become non-interactive;
 - the feedback area shows the correct answer and the same extra content as after a regular answer;
 - `Верно` / `Ошибка` are **not** shown;
-- `Уже знаю` and `Не знаю` are disabled;
-- `Дальше` is enabled.
+- the action slot shows `Дальше` instead of `Уже знаю` / `Не знаю`.
 
 SR → RU feedback:
 
@@ -1057,7 +1052,8 @@ Do not implement:
 The next card appears only after pressing:
 
 ```text
-Дальше
+Дальше      (after an answer or Не знаю)
+Уже знаю    (skips the feedback state, §33)
 ```
 
 A very short simple fade is allowed.
@@ -1110,6 +1106,15 @@ If the screen is shorter than the reference:
 4. reduce empty feedback-area whitespace first.
 
 If the screen is taller (e.g. installed PWA without browser toolbars), spacing and the word grow with viewport height (capped; answer controls keep their size), and the spare height is split evenly between the word block and the reserved feedback area. With a notch / Dynamic Island the header may sit slightly inside the top safe-area inset.
+
+### Touch behavior
+
+To feel like a native app on iOS:
+
+- no double-tap zoom (`touch-action: manipulation`);
+- no pinch zoom (iOS ignores `user-scalable=no`; block Safari `gesturestart` / `gesturechange`);
+- buttons: no text selection and no long-press callout; word and example text stay selectable;
+- rubber-band bounce and Safari pull-to-refresh are left as is.
 
 Account for iOS safe areas:
 
@@ -2007,7 +2012,8 @@ Store approved visual references in:
 
 ```text
 docs/design/
-  learn-question.png     Question state (two secondary buttons)
+  learn-question.png     Question state — OUTDATED placement: `Уже знаю` / `Не знаю` are now
+                         in the bottom action slot instead of `Дальше` (§22)
   learn-correct.png      Correct state
   learn-wrong.png        Wrong state — OUTDATED: single `Уже знаю`, header `Words`;
                          use it only for the wrong-answer colors/feedback layout
@@ -2017,7 +2023,7 @@ docs/design/
 
 `learn-question`, `learn-correct`, `learn-dont-know` and `learn-progress` are reference mockups (not exact 390 × 844 exports): use them for layout, hierarchy, colors and states; exact sizes come from this spec.
 
-Where a reference and this spec disagree on text or behavior, the spec wins (e.g. `Обновить приложение и карточки`, §30; secondary buttons ≥ 44px tall, §18).
+Where a reference and this spec disagree on text or behavior, the spec wins (e.g. `Обновить приложение и карточки`, §30; `Уже знаю` / `Не знаю` in the action slot, §18, §22).
 
 The coding agent must compare the implementation against these screenshots.
 
