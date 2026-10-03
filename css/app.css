@@ -352,6 +352,82 @@ button:disabled { cursor: default; }
   font-weight: 600;
 }
 
+/* Все слова (§30a). Rows mirror the word / pronunciation hierarchy: primary + smaller muted line. */
+.btn-words { margin-top: 0; }
+.search {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 16px; /* ≥16px: no iOS focus zoom */
+}
+.words { padding-bottom: 4px; }
+.words-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 6px;
+}
+.words-count { font-size: 13px; color: var(--text-secondary); }
+.word-row {
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: none;
+  text-align: left;
+}
+.word-row-text, .word-row-state { display: flex; flex-direction: column; min-width: 0; }
+.word-row-sr { font-size: 16px; line-height: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.word-row-ru { margin-top: 2px; font-size: 14px; line-height: 18px; color: var(--text-secondary); overflow-wrap: anywhere; }
+.word-row-state { flex: none; align-items: flex-end; text-align: right; }
+.word-row-mark { min-height: 20px; font-size: 15px; line-height: 20px; font-weight: 600; }
+.word-row-label { margin-top: 2px; font-size: 12px; line-height: 18px; color: var(--text-secondary); }
+.is-mastered { color: var(--success); }
+.is-learning, .is-new { color: var(--primary); }
+.word-row-state.is-later { color: var(--disabled-text); }
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(22, 26, 34, 0.35);
+}
+.sheet {
+  width: 100%;
+  max-width: 430px;
+  padding: 8px var(--pad-x) max(20px, env(safe-area-inset-bottom));
+  border-radius: 20px 20px 0 0;
+  background: var(--surface);
+}
+.sheet-close { display: block; margin-left: auto; font-size: 15px; }
+.sheet-word { margin: 0; font-size: 28px; line-height: 34px; font-weight: 600; overflow-wrap: anywhere; }
+.sheet-translation { margin: 6px 0 0; font-size: 16px; color: var(--text-secondary); }
+.sheet-facts { margin: 16px 0 0; }
+.sheet-facts > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  font-size: 15px;
+}
+.sheet-facts dt { color: var(--text-secondary); }
+.sheet-facts dd { margin: 0; font-weight: 500; }
+.sheet-add { width: 100%; margin-top: 16px; }
+
 .empty {
   flex: 1;
   margin: 0 var(--pad-x);

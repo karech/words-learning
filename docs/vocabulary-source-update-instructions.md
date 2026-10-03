@@ -14,7 +14,7 @@ WHEN that meaning should enter the learning progression
 
 It does not define the full card representation.
 
-The vocabulary-source agent does **not** generate pronunciation, examples, distractors, part-of-speech metadata, difficulty, runtime semantic groups, or other generated card fields.
+The vocabulary-source agent does **not** generate pronunciation, examples, distractors, part-of-speech metadata, runtime semantic groups, or other generated card fields.
 
 ---
 
@@ -37,7 +37,6 @@ The cards generator later derives:
 - final Russian `translation`;
 - `pronunciation`;
 - `partOfSpeech`;
-- `difficulty`;
 - semantic runtime `groups`;
 - exactly 3 examples;
 - distractors;

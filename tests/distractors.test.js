@@ -5,7 +5,7 @@ import { buildOptions, normalize } from '../js/distractors.js'
 let n = 0
 const card = (word, translation, extra = {}) => ({
   id: `t_${++n}`, word, translation,
-  partOfSpeech: 'noun', difficulty: 1, groups: ['place'],
+  partOfSpeech: 'noun', priority: 1, groups: ['place'],
   distractors: { ru: ['ф1', 'ф2', 'ф3'], sr: ['f1', 'f2', 'f3'] },
   ...extra,
 })
@@ -16,7 +16,7 @@ test('normalize: trim, lowercase, ё→е', () => {
   assert.equal(normalize('  Счёт '), 'счет')
 })
 
-test('tier 0 (same pos+difficulty+group) wins over fallback', () => {
+test('tier 0 (same pos+group) wins over fallback', () => {
   const target = card('prodavnica', 'магазин')
   const cards = [target, card('pijaca', 'рынок'), card('apoteka', 'аптека'), card('restoran', 'ресторан'),
     card('stan', 'квартира', { groups: ['home'] })]
@@ -38,12 +38,34 @@ test('fallback fills before loosened tiers', () => {
 test('loosened tiers used when fallback is unusable', () => {
   const target = card('prodavnica', 'магазин', { distractors: { ru: ['магазин', 'Магазин ', 'магазин'], sr: [] } })
   const cards = [target,
-    card('pijaca', 'рынок', { difficulty: 2 }),        // tier 1
-    card('kuća', 'дом', { groups: ['home'] }),          // tier 2
-    card('zgrada', 'здание', { difficulty: 3, groups: ['home'] }), // tier 3
+    card('pijaca', 'рынок'),                            // tier 0
+    card('kuća', 'дом', { groups: ['home'] }),          // tier 1
+    card('zgrada', 'здание', { groups: ['home'] }),     // tier 1
     card('ići', 'идти', { partOfSpeech: 'verb' })]      // never
   const d = distractorsOf(buildOptions(target, cards, 'sr-ru'))
   assert.deepEqual(d.sort(), ['дом', 'здание', 'рынок'])
+})
+
+test('no difficulty needed: other priorities still qualify, nearer priority preferred', () => {
+  const target = card('prodavnica', 'магазин', { priority: 5 })
+  const far = [card('pijaca', 'рынок', { priority: 1 }), card('apoteka', 'аптека', { priority: 10 }), card('pošta', 'почта', { priority: 9 })]
+  assert.deepEqual(distractorsOf(buildOptions(target, [target, ...far], 'sr-ru')).sort(), ['аптека', 'почта', 'рынок'])
+
+  const near = [card('restoran', 'ресторан', { priority: 5 }), card('banka', 'банк', { priority: 4 }), card('hotel', 'отель', { priority: 6 })]
+  for (let i = 0; i < 20; i++) {
+    assert.deepEqual(distractorsOf(buildOptions(target, [target, ...far, ...near], 'sr-ru')).sort(), ['банк', 'отель', 'ресторан'])
+  }
+})
+
+test('synonyms with qualified translations are excluded in both directions', () => {
+  const target = card('reći', 'сказать', { partOfSpeech: 'verb' })
+  const cards = [target, card('kazati', 'сказать (= reći)', { partOfSpeech: 'verb' }),
+    card('pitati', 'спросить', { partOfSpeech: 'verb' }), card('pričati', 'рассказывать', { partOfSpeech: 'verb' }),
+    card('zvati', 'звать', { partOfSpeech: 'verb' })]
+  for (let i = 0; i < 20; i++) {
+    assert.ok(!buildOptions(target, cards, 'ru-sr').options.includes('kazati'))
+    assert.ok(!buildOptions(target, cards, 'sr-ru').options.includes('сказать (= reći)'))
+  }
 })
 
 test('exclusions: same word other sense, duplicates after normalize', () => {

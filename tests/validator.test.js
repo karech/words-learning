@@ -36,7 +36,7 @@ test('per-card field rules', () => {
   failsWith('empty translation', c => { c.translation = ' ' })
   failsWith('bad sense', c => { c.sense = 'Store place' })
   failsWith('bad partOfSpeech', c => { c.partOfSpeech = 'place-noun' })
-  failsWith('bad difficulty', c => { c.difficulty = 4 })
+  failsWith('contains deprecated field "difficulty"', c => { c.difficulty = 2 })
   failsWith('groups must have 1–3', c => { c.groups = [] })
   failsWith('groups must have 1–3', c => { c.groups = ['a', 'b', 'c', 'd'] })
   failsWith('duplicate groups', c => { c.groups = ['food', 'Food'] })
@@ -81,7 +81,7 @@ test('previous: id must keep word + sense, word + sense must keep id', () => {
 
 test('previous: allowed changes and removed-card warning', () => {
   const next = clone(seed)
-  Object.assign(next.cards[0], { translation: 'новый перевод', difficulty: 3, groups: ['place'] })
+  Object.assign(next.cards[0], { translation: 'новый перевод', groups: ['place'] })
   next.cards.splice(1, 1)
   assert.deepEqual(previousErrors(next, seed), [])
   assert.ok(validate(next, { previous: seed }).warnings.includes(`removed ${c1.id} ${identity(c1)}`))
@@ -105,6 +105,19 @@ test('source: Priority format, skip rows empty, linked card priority must match'
 test('docs/serbian-words.md priorities are valid and match data/cards.json', () => {
   const source = parseSource(readFileSync(new URL('../docs/serbian-words.md', import.meta.url), 'utf8'))
   assert.deepEqual(validate(seed, { source }).errors.filter(e => e.startsWith('source') || /priority/i.test(e)), [])
+})
+
+test('current cards have no difficulty field', () => {
+  assert.ok(seed.cards.every(c => !('difficulty' in c)))
+})
+
+test('history and previous datasets may carry legacy difficulty', () => {
+  const legacy = clone(seed)
+  for (const c of legacy.cards) c.difficulty = 2
+  assert.deepEqual(validate(seed, { previous: legacy, history: [{ name: 'old.cards.json', dataset: legacy }] }).errors, [])
+  const renamed = clone(seed); renamed.cards[0].sense = 'renamed-sense'
+  const { errors } = validate(renamed, { history: [{ name: 'old.cards.json', dataset: legacy }] })
+  assert.ok(errors.some(e => e.includes(`reused: was ${identity(c0)} in old.cards.json`)))
 })
 
 test('history: deleted id reused for a different card fails', () => {

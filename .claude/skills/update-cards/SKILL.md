@@ -22,7 +22,7 @@ N defaults to 100. One run = one batch, then stop and report. Next batch = next 
 - Edit tool only for `data/cards.json` and `docs/serbian-words.md`. No scripts (node, python, jq, sed, awk, heredoc) that write, generate, merge or reformat cards or rows. Never Write the whole `cards.json`. Bash = read-only checks.
 - Batch feels too big to do by hand → make it smaller, don't script.
 - Never change an existing card's `id`, `word`, `sense`, card order, or a row's `Srpski`/`Meaning`/`Priority`. A fix needs that → report a migration/source-data issue instead.
-- `priority` = source row `Priority`, copied exactly, placed right after `difficulty`.
+- `priority` = source row `Priority`, copied exactly, placed right after `partOfSpeech`. No `difficulty` field (removed; validator error).
 - `cards.json` format: one card per line, 4-space indent, compact JSON, last card without trailing comma. Card k is on line k+2 — Read only the batch's lines (offset/limit).
 
 ## Decisions (don't re-ask)

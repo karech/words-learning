@@ -62,10 +62,6 @@ export const PRIORITY = {
   intervalFloor: 10 * MINUTE, // minimum interval used for the overdue factor (avoids /0 at level 0)
 }
 
-// Dynamic distractors may differ from the card's difficulty by at most this much (spec §39, tiers 1–2).
-// Higher → wider candidate pool, distractors less matched in difficulty.
-export const DISTRACTOR_DIFFICULTY_WINDOW = 2
-
 // After the action slot changes, taps are ignored for this long, ms (spec §22).
 // Higher → fewer accidental double taps, but the UI feels slower.
 export const TAP_GUARD_MS = 300

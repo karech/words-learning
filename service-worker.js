@@ -18,6 +18,7 @@ const SHELL = [
   'js/scheduler.js',
   'js/stats.js',
   'js/storage.js',
+  'js/words.js',
   'version.txt',
   'vendor/alpine.esm.min.js',
   'fonts/inter-latin-wght-normal.woff2',

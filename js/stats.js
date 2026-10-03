@@ -10,7 +10,7 @@ export const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.
 // Local midnight arithmetic, DST-safe.
 const daysAgo = (now, n) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - n)
 
-export const getDay = (stats, key) => ({ ...ZERO, ...stats[key] })
+const getDay = (stats, key) => ({ ...ZERO, ...stats[key] })
 
 // True if no direction of this card has ever had a completed interaction.
 // Call with the card's progress *before* applying the current interaction.
@@ -30,7 +30,15 @@ export function recordInteraction(stats, now, result, firstForCard) {
   return prune(stats, now)
 }
 
-export function prune(stats, now) {
+// Shared bookkeeping for every completed interaction: progress via `update`, then daily stats (§29).
+// `update` = scheduler action (answer / markUnknown / markKnown) called with { progress, session, cardId, direction, now }.
+export function interact({ progress, stats, session, cardId, direction, now, result, update }) {
+  const first = isFirstInteraction(progress[cardId])
+  update({ progress, session, cardId, direction, now })
+  recordInteraction(stats, new Date(now), result, first)
+}
+
+function prune(stats, now) {
   const oldest = dayKey(daysAgo(now, STATS_RETENTION_DAYS - 1))
   for (const key of Object.keys(stats)) if (key < oldest) delete stats[key]
   return stats

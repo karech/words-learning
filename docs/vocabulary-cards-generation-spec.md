@@ -144,7 +144,6 @@ Each card must have this structure:
   "pronunciation": "ра́чун",
 
   "partOfSpeech": "noun",
-  "difficulty": 1,
   "priority": 1,
 
   "groups": [
@@ -369,7 +368,7 @@ Never change an existing ID because:
 - translation changed;
 - example changed;
 - pronunciation was corrected;
-- difficulty changed;
+- priority changed;
 - groups changed;
 - distractors changed.
 
@@ -533,44 +532,11 @@ Do not invent additional enum values.
 
 ---
 
-## 14. Difficulty
+## 14. No Static Difficulty
 
-Allowed values:
+Cards have no `difficulty` field. Do not infer or emit one, under any name. The validator rejects it.
 
-```text
-1
-2
-3
-```
-
-This represents learning difficulty, not frequency rank.
-
-Suggested interpretation:
-
-### 1 — Easy
-
-- basic everyday concept;
-- direct Russian equivalent;
-- common/simple word;
-- easy to distinguish.
-
-### 2 — Medium
-
-- less obvious translation;
-- multiple meanings;
-- some contextual nuance;
-- moderately harder vocabulary.
-
-### 3 — Hard
-
-- abstract or nuanced meaning;
-- easily confused with similar words;
-- harder semantic distinction;
-- less transparent usage.
-
-Most beginner/common vocabulary should be `1` or `2`.
-
-Do not overuse `3`.
+`priority` (§15) is the only static learning-order signal. How hard a card is for the learner comes from the app's progress (correct / wrong / `Не знаю`, scheduler level).
 
 ---
 
@@ -619,18 +585,9 @@ must generate cards with priorities `1`, `2`, and `7` respectively.
 10 — C1+
 ```
 
-These values are internal learning-order tiers. They are not card difficulty and are not claims of exact official CEFR classification for an individual word.
+These values are internal learning-order tiers. They are not claims of exact official CEFR classification for an individual word.
 
 The approximate sizes of priorities `1–3` are source-authoring targets, not validator-enforced exact counts.
-
-### Relationship to `difficulty`
-
-`priority` and `difficulty` are separate fields:
-
-- `priority` = when the semantic meaning should enter learning;
-- `difficulty` = how difficult the card itself is expected to be.
-
-A very common word may have low priority number but still be semantically difficult, and vice versa.
 
 ### Mutability
 
@@ -977,7 +934,6 @@ For existing cards:
 translation
 pronunciation
 partOfSpeech
-difficulty
 priority
 groups
 distractors
@@ -1047,7 +1003,6 @@ Before emitting each card, verify:
 - Would the Russian prompt work in reverse?
 - Is pronunciation plausible and stressed?
 - Is part of speech correct?
-- Is difficulty reasonable?
 - Does `priority` exactly match the source row?
 - Are groups useful for distractor selection?
 - Are there exactly 3 bilingual examples?
@@ -1076,7 +1031,7 @@ Before finishing, verify:
 - every card has exactly 3 examples;
 - all cards have exactly 3 RU and exactly 3 SR fallback distractors;
 - only allowed `partOfSpeech` values are used;
-- difficulty is only 1–3;
+- no card has a `difficulty` field;
 - priority is only `1–10`;
 - every card priority exactly matches its source row;
 - semantic groups remain reasonably consistent;
@@ -1172,7 +1127,6 @@ Generated card:
   "translation": "магазин",
   "pronunciation": "прода́вница",
   "partOfSpeech": "noun",
-  "difficulty": 1,
   "priority": 1,
   "groups": [
     "shopping",

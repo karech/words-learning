@@ -116,6 +116,8 @@
           </div>
         </section>
 
+        <button class="btn-soft btn-words" type="button" @click="view = 'words'">Все слова</button>
+
         <section class="card">
           <h2 class="card-title">Направление</h2>
           <div class="segmented" role="group" aria-label="Направление">
@@ -144,6 +146,61 @@
         </section>
 
         <button class="btn-danger" type="button" @click="reset()">Сбросить прогресс</button>
+      </div>
+    </template>
+
+    <!-- Все слова (spec §30a): list + detail sheet; the sheet keeps the list's scroll position -->
+    <template x-if="view === 'words'">
+      <div class="screen settings">
+        <header class="header header-back">
+          <button class="btn-link" type="button" @click="view = 'progress'; wordId = null">‹ Прогресс</button>
+          <span class="header-center">Все слова</span>
+        </header>
+
+        <input class="search" type="search" placeholder="Найти слово..." aria-label="Найти слово" x-model="query"
+               autocomplete="off" autocapitalize="off" spellcheck="false">
+
+        <template x-for="g in wordGroups" :key="g.priority">
+          <section class="card words">
+            <div class="words-head">
+              <h2 class="card-title" x-text="`Приоритет ${g.priority}`"></h2>
+              <span class="words-count" x-text="`${g.mastered} / ${g.total} выучено`"></span>
+            </div>
+            <template x-for="r in g.rows" :key="r.card.id">
+              <button class="word-row" type="button" @click="wordId = r.card.id">
+                <span class="word-row-text">
+                  <span class="word-row-sr" lang="sr-Latn" x-text="r.card.word"></span>
+                  <span class="word-row-ru" x-text="r.card.translation"></span>
+                </span>
+                <span class="word-row-state" :class="`is-${r.status}`">
+                  <span class="word-row-mark" x-text="r.mark"></span>
+                  <span class="word-row-label" x-text="r.label"></span>
+                </span>
+              </button>
+            </template>
+          </section>
+        </template>
+        <p class="empty" x-show="query.trim() && !wordGroups.length">Ничего не найдено.</p>
+
+        <template x-if="word">
+          <div class="sheet-backdrop" @click.self="wordId = null">
+            <section class="sheet" role="dialog" aria-modal="true" :aria-label="word.card.word">
+              <button class="btn-link sheet-close" type="button" @click="wordId = null">Закрыть</button>
+              <p class="sheet-word" lang="sr-Latn" x-text="word.card.word"></p>
+              <p class="sheet-translation" x-text="word.card.translation"></p>
+              <dl class="sheet-facts">
+                <div><dt>Приоритет</dt><dd x-text="word.card.priority"></dd></div>
+                <div><dt>Статус</dt><dd :class="`is-${word.status}`" x-text="word.label"></dd></div>
+                <template x-if="word.status === 'learning'">
+                  <div><dt>Правильных ответов</dt><dd x-text="word.mark"></dd></div>
+                </template>
+              </dl>
+              <template x-if="word.canAdd">
+                <button class="btn-main sheet-add" type="button" @click="addToLearning()">Добавить в обучение</button>
+              </template>
+            </section>
+          </div>
+        </template>
       </div>
     </template>
 

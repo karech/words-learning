@@ -296,7 +296,6 @@ Example:
   "pronunciation": "ра́чун",
 
   "partOfSpeech": "noun",
-  "difficulty": 1,
   "priority": 1,
 
   "groups": [
@@ -334,7 +333,7 @@ Example:
 }
 ```
 
-`priority` (integer `1–10`) is copied from the vocabulary source and controls when a card may enter learning as new (§35a). The app never calculates or changes it. `priority` and `difficulty` are independent.
+`priority` (integer `1–10`) is copied from the vocabulary source and controls when a card may enter learning as new (§35a). The app never calculates or changes it. `priority` is the only static learning-order signal: cards have no static `difficulty` field (removed 2026-10-03); how hard a card is for the learner comes from progress (§31–36).
 
 ---
 
@@ -1152,7 +1151,7 @@ The secondary screen contains an explicit return control:
 К словам
 ```
 
-Statistics and settings are combined into one secondary screen.
+Statistics and settings are combined into one secondary screen. It also opens the `Все слова` vocabulary browser (§30a).
 
 Settings changes apply starting from the next card.
 
@@ -1269,7 +1268,7 @@ Explanatory copy:
 
 > Определяет, как часто среди повторений появляются новые слова.
 
-The same setting also sets how many new, not yet mastered cards may be open at once (§35, §35a). There is no tier selector; tier progression is automatic and priority numbers are not shown.
+The same setting also sets how many new, not yet mastered cards may be open at once (§35, §35a). There is no tier selector; tier progression is automatic. Priority numbers appear only in `Все слова` (§30a).
 
 ### Update
 
@@ -1298,6 +1297,40 @@ Provide:
 ```
 
 Require confirmation before performing this destructive action. Native `confirm()` is sufficient.
+
+---
+
+## 30a. `Все слова`
+
+A read-only vocabulary browser over the loaded `cards` + `progress`. Opened by the `Все слова` button on the progress screen; `‹ Прогресс` returns. No router, no persisted state of its own, no new progress fields. Logic: `js/words.js`.
+
+### List
+
+- Search field `Найти слово...`: trimmed, case-insensitive (§40 normalization) substring match on `word` or `translation`. No fuzzy search, filters or user sorting.
+- Cards grouped by `priority` ascending; inside a group sorted by `word` (Serbian alphabet), then `translation`. Groups with no matching rows are hidden. Headers are not sticky.
+- Group header: `Приоритет N` and `{mastered} / {total} выучено` — semantic cards of the whole priority (search does not change the counts).
+- Row: `word` (primary) over `translation` (smaller, muted); right side: mark over status.
+
+Statuses, derived with the tier helpers (§35a), never stored:
+
+| Status | Rule | Mark |
+|---|---|---|
+| `Выучено` | `isCardMastered` (incl. `Уже знаю`) | `✓` |
+| `В изучении` | introduced, not mastered | `{correct}/{TIER_MASTERY_CORRECT}`, correct = SR→RU + RU→SR |
+| `Новое` | not introduced, `priority ≤ activeTier` | — |
+| `Позже` | not introduced, `priority > activeTier` | `—` |
+
+No scheduler internals (level, streak, `nextReviewAt`, raw counters) in the list.
+
+### Detail
+
+Tapping a row opens a bottom sheet over the list (keeps the list's scroll position): `word`, `translation`, `Приоритет`, `Статус`, and for `В изучении` `Правильных ответов: X / TIER_MASTERY_CORRECT`.
+
+Unintroduced cards (`Новое`, `Позже`) show `Добавить в обучение`. It is exactly `Не знаю` (§25a) on the card's SR → RU item, through the same code path as the quiz (`interact` + `markUnknown`): same progress, scheduler, session retry and statistics effects (`unknown`, `newWords`). No special-casing, even where the statistics read slightly odd outside the quiz. Consequences, by existing rules only:
+
+- the card becomes `В изучении`; the sheet stays open;
+- its tier is not opened: other unseen cards of a later priority stay `Позже`;
+- RU → SR is not unlocked (only a correct SR → RU answer does, §11).
 
 ---
 
@@ -1701,11 +1734,10 @@ Primary dynamic candidate criteria:
 
 ```text
 same partOfSpeech
-same difficulty
 at least one overlapping group
 ```
 
-Select random candidates from this pool.
+Select random candidates from this pool, nearer `priority` first: candidates are shuffled, then ordered by `abs(candidate.priority - card.priority)`, so equal distances stay random. Priority proximity is a preference, never an eligibility rule.
 
 ### Fallback
 
@@ -1719,22 +1751,7 @@ for the target answer language.
 
 ### Further fallback
 
-If there are still not enough options, progressively loosen dynamic criteria:
-
-```text
-same partOfSpeech
-difficulty ±1
-common group
-```
-
-then:
-
-```text
-same partOfSpeech
-difficulty ±1
-```
-
-then:
+If there are still not enough options, loosen dynamic criteria to (same priority preference):
 
 ```text
 same partOfSpeech
@@ -1756,7 +1773,7 @@ Always exclude:
 - another sense of the same `word`;
 - already selected distractors.
 
-For RU → SR also exclude cards with exactly the same `translation`, because they could produce multiple valid Serbian answers.
+Also exclude cards whose `translation` equals the card's translation after removing parenthesized qualifiers (`заказать (в кафе)` → `заказать`). In RU → SR they would be a second valid Serbian answer; in SR → RU a near-copy of the correct answer. This keeps synonyms such as `reći` / `kazati` (`сказать` / `сказать (= reći)`) out of each other's options.
 
 Normalize strings before duplicate comparison using at least:
 
@@ -1903,7 +1920,7 @@ Validate at minimum:
 - `examples.length` is exactly 3;
 - every example contains both `sr` and `ru`;
 - `partOfSpeech` belongs to an allowed enum;
-- `difficulty` is `1`, `2`, or `3`;
+- no `difficulty` field (removed from the card model; its presence is an error — history files are exempt, §47);
 - `priority` is a JSON integer `1–10` (`0`, `11`, `1.5`, `"1"`, `null` fail);
 - `groups` contains 1–3 entries;
 - no duplicate groups;
@@ -1985,7 +2002,6 @@ Allowed changes without changing `id`:
 - pronunciation;
 - examples;
 - part of speech corrections;
-- difficulty;
 - priority (re-ranking learning order);
 - groups;
 - distractors.
@@ -1995,6 +2011,8 @@ A removed old card should produce a warning.
 A new `word + sense` receives a new ID.
 
 ### Across all history
+
+Previous and history datasets are read for `id`, `word` and `sense` only; other fields (e.g. legacy `difficulty`) are ignored. History files are never rewritten.
 
 The validator also scans every file in `data/history/`. An `id` that ever existed in any history file must, if present in the new dataset, still map to the same `word + sense`. A deleted ID must never be reused for a different card; this fails validation.
 
@@ -2186,6 +2204,7 @@ distractors.js
 storage.js
 stats.js
 cards.js
+words.js
 ```
 
 They should operate on plain JavaScript data.
@@ -2211,7 +2230,6 @@ Including:
 - retry range `5–10`;
 - recent-card exclusion size;
 - in-pool selection coefficients;
-- distractor difficulty window;
 - double-tap guard duration;
 - statistics retention days.
 

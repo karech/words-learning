@@ -7,8 +7,9 @@ import { buildOptions } from './distractors.js'
 import * as pwa from './pwa.js'
 import * as question from './question.js'
 import * as scheduler from './scheduler.js'
-import { isFirstInteraction, recordInteraction, summary } from './stats.js'
+import { interact, summary } from './stats.js'
 import * as storage from './storage.js'
+import * as words from './words.js'
 
 Alpine.data('app', () => ({
   view: 'learn',
@@ -73,12 +74,14 @@ Alpine.data('app', () => ({
     }
   },
 
-  // Shared bookkeeping for every completed interaction: progress + daily stats (§29).
-  act(result, updateProgress) {
+  // Every completed interaction on the current question: progress + daily stats (§29).
+  act(result, update) {
     const { card, direction } = this.q
-    const first = isFirstInteraction(this.progress[card.id])
-    updateProgress({ progress: this.progress, session: this.session, cardId: card.id, direction, now: Date.now() })
-    recordInteraction(this.stats, new Date(), result, first)
+    interact({ progress: this.progress, stats: this.stats, session: this.session, cardId: card.id, direction, now: Date.now(), result, update })
+    this.save()
+  },
+
+  save() {
     storage.saveProgress(this.progress)
     storage.saveStats(this.stats)
   },
@@ -144,6 +147,19 @@ Alpine.data('app', () => ({
       this.updateMessage = 'Не удалось проверить обновление.'
     }
     this.updating = false
+  },
+
+  // --- Все слова (§30a): read-only view; the only write is addToLearning. ---
+
+  query: '',
+  wordId: null, // detail sheet card id
+
+  get wordGroups() { return words.wordGroups(this.dataset?.cards ?? [], this.progress, this.query) },
+  get word() { return this.wordGroups.flatMap(g => g.rows).find(r => r.card.id === this.wordId) },
+
+  addToLearning() {
+    words.addToLearning({ progress: this.progress, stats: this.stats, session: this.session, cardId: this.wordId, now: Date.now() })
+    this.save()
   },
 
   // §51: progress + stats only; cards and settings stay.

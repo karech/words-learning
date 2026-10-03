@@ -12,7 +12,7 @@ import { pathToFileURL } from 'node:url'
 import { buildOptions, normalize } from '../js/distractors.js'
 
 const POS = ['noun', 'verb', 'adjective', 'adverb', 'pronoun', 'preposition', 'conjunction', 'other']
-const REQUIRED = ['id', 'word', 'sense', 'translation', 'pronunciation', 'partOfSpeech', 'difficulty', 'priority', 'groups', 'distractors', 'examples']
+const REQUIRED = ['id', 'word', 'sense', 'translation', 'pronunciation', 'partOfSpeech', 'priority', 'groups', 'distractors', 'examples']
 const SENSE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const SOURCE_PRIORITY = /^(10|[1-9])$/
 
@@ -58,7 +58,8 @@ export function validate(dataset, { previous = null, history = [], source = null
     for (const f of ['word', 'translation', 'pronunciation']) if (!nonEmpty(c[f])) err(at, `empty ${f}`)
     if (!SENSE.test(c.sense)) err(at, `bad sense format "${c.sense}" (lowercase kebab-case)`)
     if (!POS.includes(c.partOfSpeech)) err(at, `bad partOfSpeech "${c.partOfSpeech}"`)
-    if (![1, 2, 3].includes(c.difficulty)) err(at, `bad difficulty ${c.difficulty}`)
+    // Removed 2026-10-03; history files may still carry it (only id/word/sense are read there).
+    if ('difficulty' in c) err(at, 'contains deprecated field "difficulty"')
     if (!validPriority(c.priority)) err(at, `bad priority ${JSON.stringify(c.priority)} (integer 1–10)`)
 
     if (!Array.isArray(c.groups) || c.groups.length < 1 || c.groups.length > 3) err(at, 'groups must have 1–3 entries')

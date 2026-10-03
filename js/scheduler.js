@@ -22,11 +22,14 @@ const NEW_ITEM = {
 // Answer, "Не знаю" or "Уже знаю" in any direction. Shown-only is not introduced.
 export const isCardIntroduced = (cardId, progress) => !isFirstInteraction(progress[cardId])
 
+// Cumulative correct answers, SR→RU + RU→SR.
+export const totalCorrect = (cardId, progress) =>
+  Object.values(progress[cardId] ?? {}).reduce((sum, i) => sum + (i?.correct ?? 0), 0)
+
 // Historical counters only (correct, known) — later failures never un-master a card.
 export function isCardMastered(cardId, progress) {
-  const items = Object.values(progress[cardId] ?? {})
-  return items.some(i => i?.known > 0)
-    || items.reduce((sum, i) => sum + (i?.correct ?? 0), 0) >= TIER_MASTERY_CORRECT
+  return Object.values(progress[cardId] ?? {}).some(i => i?.known > 0)
+    || totalCorrect(cardId, progress) >= TIER_MASTERY_CORRECT
 }
 
 // unseen = not introduced; unmastered = introduced but not mastered.
