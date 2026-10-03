@@ -1,0 +1,10 @@
+# idea folder
+.idea
+
+
+# Claude
+agent/README.md
+agent/tasks/*
+!agent/tasks/.gitkeep
+agent/tmp/*
+!agent/tmp/.gitkeep

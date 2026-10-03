@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Original project icon: book with a big W. Full-bleed background; artwork stays
+       inside the maskable safe zone (circle r=205 around center). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EAF4FF"/>
+      <stop offset="1" stop-color="#CFE5FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- pages -->
+  <rect x="158" y="126" width="210" height="286" rx="20" fill="#FFFFFF" stroke="#A9CCF5" stroke-width="4"/>
+  <path d="M356 150 V392" stroke="#D6E8FC" stroke-width="3"/>
+  <!-- cover -->
+  <rect x="144" y="108" width="212" height="284" rx="22" fill="#5AA9F5"/>
+  <!-- spine -->
+  <path d="M166 108 H180 V392 H166 A22 22 0 0 1 144 370 V130 A22 22 0 0 1 166 108 Z" fill="#3F8EE8"/>
+  <!-- W -->
+  <path d="M204 196 L236 304 L268 226 L300 304 L332 196" fill="none" stroke="#FFFFFF" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

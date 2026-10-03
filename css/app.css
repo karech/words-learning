@@ -1,0 +1,369 @@
+/* Inter, self-hosted (spec §14) */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(../fonts/inter-cyrillic-wght-normal.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(../fonts/inter-latin-ext-wght-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(../fonts/inter-latin-wght-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --bg: #F7F8FA;
+  --surface: #FFFFFF;
+  --text-primary: #161A22;
+  --text-secondary: #6B7380;
+  --border: #DFE3E9;
+  --primary: #4D6BF7;
+  --primary-soft: #ECF0FF;
+  --success: #1F9454;
+  --success-soft: #EBF9F0;
+  --error: #D12E33;
+  --error-soft: #FEEDED;
+  --disabled-bg: #E8EBF0;
+  --disabled-text: #999EA8;
+  --pad-x: 20px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  -webkit-text-size-adjust: 100%;
+}
+
+[x-cloak] { display: none !important; }
+
+button {
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+button:disabled { cursor: default; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Layout (spec §15, §20, §27): header + word, reserved feedback (flex), bottom panel. */
+.app {
+  max-width: 430px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+}
+.screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  height: 48px;
+  margin: 14px var(--pad-x) 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+.btn-pill {
+  min-width: 112px;
+  height: 40px;
+  padding: 0 20px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Word area (§17) */
+.word-area {
+  margin: 12px var(--pad-x) 0;
+  padding: 33px 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.word {
+  margin: 0;
+  font-size: 36px;
+  line-height: 44px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.pronunciation {
+  min-height: 18px; /* kept even when hidden (RU→SR) */
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 18px;
+  color: var(--text-secondary);
+}
+.example {
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 22px;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+/* Уже знаю / Не знаю (§18) */
+.secondary-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 10px;
+}
+.btn-secondary {
+  width: 138px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 500;
+}
+.btn-secondary:disabled { background: var(--disabled-bg); color: var(--disabled-text); }
+
+/* Reserved feedback (§19): takes the leftover height, shrinks first on short screens.
+   min-height = feedback content (title + line + example), so answering never shifts layout. */
+.feedback {
+  flex: 1 0 0;
+  min-height: 76px;
+  margin: 8px var(--pad-x) 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+.fb-title {
+  font-size: 18px;
+  line-height: 22px;
+  font-weight: 600;
+}
+.fb-title.is-correct { color: var(--success); }
+.fb-title.is-wrong { color: var(--error); }
+.fb-line {
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 18px;
+  font-weight: 500;
+}
+.fb-example {
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 18px;
+}
+.fb-line + .fb-example {
+  font-size: 14px;
+  line-height: 17px;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+/* Bottom panel (§20–22) */
+.panel {
+  padding: 15px var(--pad-x) calc(13px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.answers {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.answer {
+  height: 52px;
+  padding: 0 17px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 500;
+  text-align: left;
+}
+.answer:disabled { opacity: 1; }
+.answer.is-correct { background: var(--success-soft); border-color: var(--success); color: var(--success); font-weight: 600; }
+.answer.is-wrong { background: var(--error-soft); border-color: var(--error); color: var(--error); font-weight: 600; }
+.answer svg { flex: none; width: 18px; height: 18px; }
+
+.btn-next {
+  width: 100%;
+  height: 52px;
+  margin-top: 26px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+.btn-next:disabled { background: var(--disabled-bg); color: var(--disabled-text); }
+
+/* Short viewports (mobile Safari with toolbars ≈ 660px): tighten whitespace only;
+   answer / Next / secondary button sizes stay (§27). 390×844 is unaffected. */
+@media (max-height: 760px) {
+  .header { margin-top: 6px; }
+  .word-area { margin-top: 0; padding: 8px 0 8px; }
+  .word { font-size: 32px; line-height: 40px; }
+  .feedback { margin: 4px var(--pad-x) 8px; }
+  .panel { padding: 10px var(--pad-x) calc(8px + env(safe-area-inset-bottom)); }
+  .answers { gap: 8px; }
+  .btn-next { margin-top: 12px; }
+}
+
+/* Progress + settings (§28–30, learn-progress.png). Scrolls normally. */
+.settings {
+  padding: 0 var(--pad-x) calc(20px + env(safe-area-inset-bottom));
+  gap: 12px;
+}
+.settings .header { margin-left: 0; margin-right: 0; }
+.header-back { position: relative; justify-content: flex-start; }
+.header-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 17px;
+  font-weight: 600;
+}
+.btn-link {
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+.page-title {
+  margin: 4px 0 4px;
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 700;
+}
+.card {
+  padding: 14px;
+  background: var(--surface);
+  border-radius: 16px;
+}
+.card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.card-note {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.card-note:empty { display: none; }
+
+.metrics { display: flex; padding: 12px 0; }
+.metric { flex: 1; padding: 0 14px; }
+.metric + .metric { border-left: 1px solid var(--border); }
+.metric-label { font-size: 12px; color: var(--text-secondary); }
+.metric-value { margin: 2px 0; font-size: 22px; line-height: 27px; font-weight: 700; }
+
+.bars {
+  height: 72px;
+  margin-top: 12px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+.bar {
+  width: 6px;
+  border-radius: 3px;
+  background: var(--primary);
+}
+.bar.is-empty { height: 6px; background: var(--disabled-bg); }
+
+.segmented {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.segmented button {
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.btn-soft {
+  width: 100%;
+  height: 44px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 500;
+}
+.btn-soft:disabled { color: var(--disabled-text); }
+
+.btn-danger {
+  height: 48px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--error-soft);
+  color: var(--error);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.empty {
+  flex: 1;
+  margin: 0 var(--pad-x);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-secondary);
+}

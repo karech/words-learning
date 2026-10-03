@@ -1,0 +1,32 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "permissions": {
+    "allow": [
+      "Edit(agent/knowledge/**)",
+      "Edit(agent/tasks/**)",
+      "Edit(agent/tmp/**)"
+    ],
+    "deny": [
+      "Edit(//tmp/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command' | grep -qE \"(^|[[:space:]]|['\\\"])(/tmp|/private/tmp)(/|[[:space:]]|\\$|['\\\"])\" && { echo 'Use agent/tmp instead of /tmp' >&2; exit 2; } || exit 0"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true
+  }
+}

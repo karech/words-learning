@@ -1,0 +1,43 @@
+# Publish to GitHub Pages on push to main (spec §3).
+# Build = copy runtime files + stamp version.txt with the deploy UTC datetime. Nothing else.
+# Repo setting: Settings → Pages → Source = GitHub Actions.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build
+        run: |
+          mkdir -p _site/data
+          cp -r index.html manifest.webmanifest service-worker.js css js vendor fonts icons _site/
+          cp data/cards.json _site/data/
+          date -u +%Y-%m-%dT%H:%M:%SZ > _site/version.txt
+          cat _site/version.txt
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
