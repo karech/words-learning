@@ -39,6 +39,9 @@
   --disabled-bg: #E8EBF0;
   --disabled-text: #999EA8;
   --pad-x: 20px;
+  /* Learn-screen growth factor: 0 at 660px tall (Safari with toolbars), 1px at 844, capped at 1.5px.
+     Spacing and sizes use calc(<min> + N * var(--u)) so the screen fills taller viewports (§27). */
+  --u: clamp(0px, (100dvh - 660px) / 184, 1.5px);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -80,7 +83,9 @@ button:disabled { cursor: default; }
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  padding-top: env(safe-area-inset-top);
+  /* Notch / Dynamic Island insets (44–59px) have spare room below the status bar: header goes 8px into it.
+     A plain 20px status bar (iPhone SE) keeps its full inset. Browser: inset 0. */
+  padding-top: max(env(safe-area-inset-top) - 8px, min(env(safe-area-inset-top), 20px));
 }
 .screen {
   flex: 1;
@@ -90,7 +95,8 @@ button:disabled { cursor: default; }
 
 .header {
   height: 48px;
-  margin: 14px var(--pad-x) 0;
+  /* Safe-area inset (notch / Dynamic Island in standalone) already spaces the top; browser: inset 0, unchanged. */
+  margin: max(0px, calc(6px + 8 * var(--u) - env(safe-area-inset-top))) var(--pad-x) 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -113,17 +119,19 @@ button:disabled { cursor: default; }
 
 /* Word area (§17) */
 .word-area {
-  margin: 12px var(--pad-x) 0;
-  padding: 33px 0 16px;
+  flex: 1 0 0; /* shares spare height with .feedback; content sits at the bottom */
+  margin: 0 var(--pad-x);
+  padding: calc(8px + 42 * var(--u)) 0 calc(8px + 8 * var(--u));
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   align-items: center;
   text-align: center;
 }
 .word {
   margin: 0;
-  font-size: 36px;
-  line-height: 44px;
+  font-size: calc(32px + 10 * var(--u));
+  line-height: 1.22;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -143,7 +151,7 @@ button:disabled { cursor: default; }
 }
 /* Уже знаю / Не знаю (§18) */
 .secondary-actions {
-  margin-top: 8px;
+  margin-top: calc(8px + 8 * var(--u));
   display: flex;
   gap: 10px;
 }
@@ -159,12 +167,12 @@ button:disabled { cursor: default; }
 }
 .btn-secondary:disabled { background: var(--disabled-bg); color: var(--disabled-text); }
 
-/* Reserved feedback (§19): takes the leftover height, shrinks first on short screens.
-   min-height = feedback content (title + line + example), so answering never shifts layout. */
+/* Reserved feedback (§19). Splits spare height evenly with .word-area (flex-basis 0, so the split
+   doesn't depend on content and answering never shifts layout). min-height = feedback content. */
 .feedback {
   flex: 1 0 0;
   min-height: 76px;
-  margin: 8px var(--pad-x) 16px;
+  margin: calc(4px + 4 * var(--u)) var(--pad-x) 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -197,14 +205,15 @@ button:disabled { cursor: default; }
 
 /* Bottom panel (§20–22) */
 .panel {
-  padding: 15px var(--pad-x) calc(13px + env(safe-area-inset-bottom));
+  margin-top: calc(8px + 8 * var(--u));
+  padding: calc(10px + 5 * var(--u)) var(--pad-x) max(calc(8px + 5 * var(--u)), env(safe-area-inset-bottom));
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
 .answers {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: calc(8px + 2 * var(--u));
 }
 .answer {
   height: 52px;
@@ -228,7 +237,7 @@ button:disabled { cursor: default; }
 .btn-next {
   width: 100%;
   height: 52px;
-  margin-top: 26px;
+  margin-top: calc(12px + 14 * var(--u));
   border: 0;
   border-radius: 14px;
   background: var(--primary);
@@ -237,18 +246,6 @@ button:disabled { cursor: default; }
   font-weight: 600;
 }
 .btn-next:disabled { background: var(--disabled-bg); color: var(--disabled-text); }
-
-/* Short viewports (mobile Safari with toolbars ≈ 660px): tighten whitespace only;
-   answer / Next / secondary button sizes stay (§27). 390×844 is unaffected. */
-@media (max-height: 760px) {
-  .header { margin-top: 6px; }
-  .word-area { margin-top: 0; padding: 8px 0 8px; }
-  .word { font-size: 32px; line-height: 40px; }
-  .feedback { margin: 4px var(--pad-x) 8px; }
-  .panel { padding: 10px var(--pad-x) calc(8px + env(safe-area-inset-bottom)); }
-  .answers { gap: 8px; }
-  .btn-next { margin-top: 12px; }
-}
 
 /* Progress + settings (§28–30, learn-progress.png). Scrolls normally. */
 .settings {

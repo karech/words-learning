@@ -1109,6 +1109,8 @@ If the screen is shorter than the reference:
 3. keep the bottom panel anchored;
 4. reduce empty feedback-area whitespace first.
 
+If the screen is taller (e.g. installed PWA without browser toolbars), spacing and the word grow with viewport height (capped; answer controls keep their size), and the spare height is split evenly between the word block and the reserved feedback area. With a notch / Dynamic Island the header may sit slightly inside the top safe-area inset.
+
 Account for iOS safe areas:
 
 ```css
