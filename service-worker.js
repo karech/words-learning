@@ -40,8 +40,10 @@ self.addEventListener('activate', event => event.waitUntil(self.clients.claim())
 
 self.addEventListener('fetch', event => {
   const req = event.request
-  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return
-  // Manual update checks use cache: 'no-store' — always go to the network (§43).
-  if (req.cache === 'no-store') return event.respondWith(fetch(req))
+  const url = new URL(req.url)
+  if (req.method !== 'GET' || url.origin !== self.location.origin) return
+  // version.txt always from the network: the update check compares it with the cached copy (§43).
+  // Not keyed on req.cache — browsers don't reliably pass 'no-store' through to the worker.
+  if (url.pathname.endsWith('/version.txt')) return
   event.respondWith(caches.match(req, { ignoreSearch: true }).then(hit => hit ?? fetch(req)))
 })

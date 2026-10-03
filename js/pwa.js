@@ -9,8 +9,12 @@ const readVersion = async init => {
   return (await res.text()).trim()
 }
 
-// Running version (from the Service Worker cache in production). '' = dev.
-export const localVersion = () => readVersion()
+// Running version: the copy the Service Worker cached with the app (the worker never serves
+// version.txt). No cache (dev, first visit) → server. '' = dev.
+export const localVersion = async () => {
+  const hit = await globalThis.caches?.match('version.txt')
+  return hit ? (await hit.text()).trim() : readVersion()
+}
 
 // Version currently deployed on the server (bypasses the Service Worker cache).
 export const remoteVersion = () => readVersion({ cache: 'no-store' })
