@@ -20,6 +20,7 @@ N defaults to 100. One run = one batch, then stop and report. Next batch = next 
 ## Hard rules (both modes)
 
 - Edit tool only for `data/cards.json` and `docs/serbian-words.md`. No scripts (node, python, jq, sed, awk, heredoc) that write, generate, merge or reformat cards or rows. Never Write the whole `cards.json`. Bash = read-only checks.
+- Before the first change of a run: `data/cards.json` must equal HEAD (`git diff --quiet data/cards.json`), then archive it unless the latest history file is identical — `cmp -s data/cards.json "$(ls data/history/*.cards.json | tail -1)" || cp data/cards.json "data/history/$(date -u +%Y-%m-%dT%H-%M-%SZ).cards.json"`. The validator compares against the latest archive; without it, id/word/sense checks are skipped.
 - Batch feels too big to do by hand → make it smaller, don't script.
 - Never change an existing card's `id`, `word`, `sense`, card order, or a row's `Srpski`/`Meaning`/`Priority`. A fix needs that → report a migration/source-data issue instead.
 - `priority` = source row `Priority`, copied exactly, placed right after `partOfSpeech`. No `difficulty` field (removed; validator error).
